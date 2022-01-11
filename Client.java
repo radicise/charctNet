@@ -13,7 +13,7 @@ class Client {
 	public static final double version = 0.1;//Version
 	public static void main(String[] args) throws Exception {
 		String uname = "defaultAccount";
-		String password = "BennyAndTheJets3301";//Sorry about the name typo
+		String password = "BennyAndTheJets3301";
 		Socket cnct = new Socket(InetAddress.getByAddress(new byte[]{0x7f, 0x00, 0x00, 0x01}), 15227);
 		OutputStream outS = cnct.getOutputStream();
 		InputStream inS = cnct.getInputStream();
