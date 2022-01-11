@@ -13,26 +13,31 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 class Handling implements Runnable {
+	static Object lSync = new Object();
+	static volatile List<Socket> socks = new ArrayList<Socket>();
 	//For future-proofing, please add no user names over 64 bytes when encoded in UTF-8
 	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0x8cd1d8ce, 0xbdbe6b8c, 0xf858694c, 0xd7ecd800, 0x7e7a956a, 0xb4b82a54, 0xcde27bf9, 0x6c06e2eb};
-	static String[] unames = {"guest", "radicise"};
+	static String[] unames = {"guest", "defaultAccount"};
 	static List<String> namel = Arrays.asList(unames);
 	static ArrayList<String> names = new ArrayList<String>(namel);
 	static SecureRandom sRand = new SecureRandom();
 	public static final double version = 0.1;//version
 	Socket socket;
+	String username = "";
 	Handling(Socket sock) {
 		socket = sock;
 	}
 	public static void main(String[] arg) {
+		System.out.println("Server is starting...");
 		try {
 			ServerSocket servsock = new ServerSocket(15227);
 			accept(servsock);
 		} catch (Exception e) {
-			System.out.println("Exception: " + e);
+			System.out.println("Exception in server: " + e);
 		}
 	}
-	public static void accept(ServerSocket servsock) throws Exception {
+	static void accept(ServerSocket servsock) throws Exception {
+		System.out.println("Server has started...");
 		while (true) {
 			Handling pl = new Handling(servsock.accept());
 	        new Thread(new Runnable() {
@@ -46,15 +51,37 @@ class Handling implements Runnable {
 	        		catch (Exception e) {
 	        			System.out.println(e);
 	        		}
+	        		synchronized (lSync) {
+	        			List<Socket> tl = socks;
+	        			tl.remove(ple.socket);
+	        			socks = tl;
+	        		}
+	        		if (!ple.username.equals("")) {
+	        			transmit(ple.username + " has left the chat");
+	        		}
 	        	}
 	        }).start();
 	        Thread.sleep(500);
 		}
 	}
+	static void transmit (String message) {
+		List<Socket> tl = socks;
+		byte[] mBs = message.getBytes(StandardCharsets.UTF_8);
+		byte[] data = new byte[mBs.length + 1];
+		System.arraycopy(mBs, 0, data, 1, mBs.length);
+		data[0] = 7;
+		for (Socket s : tl) {
+			try {
+				s.getOutputStream().write(data);
+			}
+			catch (Exception e) {
+				System.out.println("Exception in transmitting message: " + e);
+			}
+		}
+		System.out.println("\"" + message);
+	}
 	public void run() {}
-	public void serve() throws Exception {
-		System.out.println("Yay");
-		System.out.println(socket.getPort());
+	void serve() throws Exception {
 		OutputStream outS = socket.getOutputStream();
 		InputStream inS = socket.getInputStream();
 		DataInputStream inD = new DataInputStream(inS);
@@ -75,7 +102,6 @@ class Handling implements Runnable {
 			return;
 		}
 		double ver = inD.readDouble();
-		System.out.println(ver);
 		if (ver < 0) {
 			ouD.writeDouble(version);
 			ouD.flush();
@@ -102,6 +128,9 @@ class Handling implements Runnable {
 		}
 		if (ti != 11) {
 			System.out.println("invalid packet");
+			out.write(13);
+			out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
+			out.writeTo(outS);
 			return;
 		}
 		byte[] resp = new byte[32];
@@ -126,8 +155,6 @@ class Handling implements Runnable {
 			return;
 		}
 		int ind = names.indexOf(name);
-		System.out.println(name);
-		System.out.println(ind);
 		for (byte n = 0; n < 8; n++) {
 			ouD.writeInt(pws[(8 * ind) + n]);
 		}
@@ -135,9 +162,6 @@ class Handling implements Runnable {
 		out.write(salt);
 		out.write(nBs);
 		byte[] exp = dig.digest(out.toByteArray());
-		for (byte n : out.toByteArray()) {
-			System.out.print(n + " ");
-		}
 		out.reset();
 		if (!name.equals("guest")) {
 			for (byte n = 0; n < 32; n++) {
@@ -149,10 +173,40 @@ class Handling implements Runnable {
 				}
 			}
 		}
-		out.write(16);
+		username = name;
+		out.write(7);
 		out.write(("Welcome back, " + name).getBytes(StandardCharsets.UTF_8));
 		out.writeTo(outS);
 		out.reset();
-		System.out.println("[" + name + "] connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+		System.out.println("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+		byte[] mData;
+		String message;
+		synchronized (lSync) {
+			List<Socket> tl = socks;
+			tl.add(socket);
+			socks = tl;
+		}
+		Thread.sleep(200);
+		transmit(name + " has entered the chat");
+		while (true) {
+			while (inS.available() < 1) {
+				Thread.sleep(200);
+			}
+			ti = inS.read();
+			if (ti == 13) {
+				return;
+			}
+			if (ti != 7) {
+				System.out.println("invalid packet");
+				out.write(13);
+				out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
+				out.writeTo(outS);
+				return;
+			}
+			mData = new byte[inS.available()];
+			inS.read(mData);
+			message = new String(mData, StandardCharsets.UTF_8);
+			transmit("{" + name + "} " + message);
+		}
 	}
 }
