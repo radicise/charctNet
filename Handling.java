@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 class Handling implements Runnable {
-	public static log chatlg = new log("chat-log.txt", (short) 30, "chat", 65536, true, StandardCharsets.UTF_8);
-	public static log servlg = new log("server-log.txt", (short) 30, "server", 65536, true, StandardCharsets.UTF_8);
+	public static log chatlg = new log("cN-chatLog.txt", (short) 30, "chat", 65536, true, StandardCharsets.UTF_8);
+	public static log servlg = new log("cN-serverLog.txt", (short) 30, "server", 65536, true, StandardCharsets.UTF_8);
 	static Object lSync = new Object();
 	static Object nSync = new Object();
 	static volatile List<String> connected = new ArrayList<String>();
@@ -38,11 +38,11 @@ class Handling implements Runnable {
 			ServerSocket servsock = new ServerSocket(port);
 			accept(servsock);
 		} catch (Exception e) {
-			servlg.append("Exception in server: " + e);
+			servlg.append("Exception in server: " + e + "\n");
 		}
 	}
 	static void close() {
-		servlg.append("Server closing...");
+		servlg.append("Server closing...\n");
 		chatlg.flush();
 		servlg.flush();
 		byte[] mBs = "server closing".getBytes(StandardCharsets.UTF_8);
@@ -55,7 +55,7 @@ class Handling implements Runnable {
 				s.getOutputStream().write(data);
 			}
 			catch (Exception e) {
-				servlg.append("Exception in transmitting disconnection: " + e);
+				servlg.append("Exception in transmitting disconnection: " + e + "\n");
 			}
 		}
 		System.exit(0);
@@ -63,7 +63,7 @@ class Handling implements Runnable {
 	static void accept(ServerSocket servsock) throws Exception {
 		servlg.startExecutor();
 		chatlg.startExecutor();
-		servlg.append("Server has started on port " + port);
+		servlg.append("Server has started on port " + port + "\n");
 		while (true) {
 			Handling pl = new Handling(servsock.accept());
 	        new Thread(new Runnable() {
@@ -106,7 +106,7 @@ class Handling implements Runnable {
 				s.getOutputStream().write(data);
 			}
 			catch (Exception e) {
-				servlg.append("Exception in transmitting message: " + e);
+				servlg.append("Exception in transmitting message: " + e + "\n");
 			}
 		}
 		chatlg.append(message);
@@ -158,7 +158,7 @@ class Handling implements Runnable {
 			return;
 		}
 		if (ti != 11) {
-			servlg.append("invalid packet");
+			servlg.append("invalid packet\n");
 			out.write(13);
 			out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
@@ -209,7 +209,7 @@ class Handling implements Runnable {
 		out.write(("Welcome back, " + name + "\n").getBytes(StandardCharsets.UTF_8));
 		out.writeTo(outS);
 		out.reset();
-		servlg.append("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+		servlg.append("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "\n");
 		byte[] mData;
 		String message;
 		synchronized (lSync) {
@@ -234,7 +234,7 @@ class Handling implements Runnable {
 				return;
 			}
 			if (ti != 7) {
-				servlg.append("invalid packet");
+				servlg.append("invalid packet\n");
 				out.write(13);
 				out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
 				out.writeTo(outS);

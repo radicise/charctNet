@@ -115,7 +115,7 @@ public class log implements Runnable {
 		if (annc) {
 			new Thread(new Runnable() {
 	        	public void run() {
-	        		System.out.println(name + ": " + data);
+	        		System.out.print(name + ": " + data);
 	        	}
 	        }).start();
 		}
@@ -132,7 +132,7 @@ public class log implements Runnable {
 		if (show) {
 			new Thread(new Runnable() {
 	        	public void run() {
-	        		System.out.println(name + ": " + data);
+	        		System.out.print(name + ": " + data);
 	        	}
 	        }).start();
 		}

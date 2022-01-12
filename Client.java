@@ -11,11 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 class Client {
 	public static final double version = 0.1;//Version
-	public static log conversation = new log("chat-logged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
+	public static log conversation = new log("cN-chatLogged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
 	public static void main(String[] args) throws Exception {
 		String uname = "defaultAccount";
 		String password = "BennyAndTheJets3301";
-		Socket cnct = new Socket(InetAddress.getByAddress(new byte[]{0x7f, 0x00, 0x00, 0x01}), 15227);
+		Socket cnct = new Socket(InetAddress.getByAddress(new byte[]{127, 0, 0, 1}), 15227);
 		OutputStream outS = cnct.getOutputStream();
 		InputStream inS = cnct.getInputStream();
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -57,7 +57,7 @@ class Client {
 		out.writeTo(outS);
 		out.reset();
 		conversation.startExecutor();
-		conversation.append("+Connected to " + cnct.getInetAddress().getHostAddress() + ":" + cnct.getPort());
+		conversation.append("+Connected to " + cnct.getInetAddress().getHostAddress() + ":" + cnct.getPort() + "\n");
 		new Thread(new Runnable() {
         	public void run() {
         		try {
