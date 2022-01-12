@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 class Client {
 	public static final double version = 0.1;//Version
+	public static log conversation = new log("chat-logged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
 	public static void main(String[] args) throws Exception {
 		String uname = "defaultAccount";
 		String password = "BennyAndTheJets3301";
@@ -55,14 +56,17 @@ class Client {
 		out.write(uname.getBytes(StandardCharsets.UTF_8));
 		out.writeTo(outS);
 		out.reset();
+		conversation.startExecutor();
+		conversation.append("+Connected to " + cnct.getInetAddress().getHostAddress() + ":" + cnct.getPort());
 		new Thread(new Runnable() {
         	public void run() {
         		try {
         			byte[] message;
         			int si;
+        			String tex;
         			while (true) {
 						while (inS.available() < 1) {
-							Thread.sleep(200);
+							Thread.sleep(50);
 						}
 						si = inS.read();
 						if (si == 13) {
@@ -77,7 +81,9 @@ class Client {
 						}
 						message = new byte[inS.available()];
 						inS.read(message);
-						System.out.println(new String(message, StandardCharsets.UTF_8));
+						tex = new String(message, StandardCharsets.UTF_8);
+						System.out.print(tex);
+						conversation.append("\"" + tex);
         			}
 				}
         		catch (Exception e) {
@@ -96,6 +102,7 @@ class Client {
 			else if (input.equals("/exit")) {
 				outS.write(13);
 				System.out.println("Exiting...");
+				conversation.flush();
 				Thread.sleep(200);
 				System.exit(0);
 			}

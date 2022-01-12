@@ -13,7 +13,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 class Handling implements Runnable {
+	public static log chatlg = new log("chat-log.txt", (short) 30, "chat", 65536, true, StandardCharsets.UTF_8);
+	public static log servlg = new log("server-log.txt", (short) 30, "server", 65536, true, StandardCharsets.UTF_8);
 	static Object lSync = new Object();
+	static Object nSync = new Object();
+	static volatile List<String> connected = new ArrayList<String>();
 	static volatile List<Socket> socks = new ArrayList<Socket>();
 	//For future-proofing, please add no user names over 64 bytes when encoded in UTF-8
 	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0x8cd1d8ce, 0xbdbe6b8c, 0xf858694c, 0xd7ecd800, 0x7e7a956a, 0xb4b82a54, 0xcde27bf9, 0x6c06e2eb};
@@ -22,6 +26,7 @@ class Handling implements Runnable {
 	static ArrayList<String> names = new ArrayList<String>(namel);
 	static SecureRandom sRand = new SecureRandom();
 	public static final double version = 0.1;//version
+	public static int port = 15227;
 	Socket socket;
 	String username = "";
 	Handling(Socket sock) {
@@ -30,14 +35,35 @@ class Handling implements Runnable {
 	public static void main(String[] arg) {
 		System.out.println("Server is starting...");
 		try {
-			ServerSocket servsock = new ServerSocket(15227);
+			ServerSocket servsock = new ServerSocket(port);
 			accept(servsock);
 		} catch (Exception e) {
-			System.out.println("Exception in server: " + e);
+			servlg.append("Exception in server: " + e);
 		}
 	}
+	static void close() {
+		servlg.append("Server closing...");
+		chatlg.flush();
+		servlg.flush();
+		byte[] mBs = "server closing".getBytes(StandardCharsets.UTF_8);
+		byte[] data = new byte[mBs.length + 1];
+		System.arraycopy(mBs, 0, data, 1, mBs.length);
+		data[0] = 13;
+		List<Socket> tl = socks;
+		for (Socket s : tl) {
+			try {
+				s.getOutputStream().write(data);
+			}
+			catch (Exception e) {
+				servlg.append("Exception in transmitting disconnection: " + e);
+			}
+		}
+		System.exit(0);
+	}
 	static void accept(ServerSocket servsock) throws Exception {
-		System.out.println("Server has started...");
+		servlg.startExecutor();
+		chatlg.startExecutor();
+		servlg.append("Server has started on port " + port);
 		while (true) {
 			Handling pl = new Handling(servsock.accept());
 	        new Thread(new Runnable() {
@@ -56,8 +82,13 @@ class Handling implements Runnable {
 	        			tl.remove(ple.socket);
 	        			socks = tl;
 	        		}
+	        		synchronized (nSync) {
+	        			List<String> tn = connected;
+	        			tn.remove(ple.username);
+	        			connected = tn;
+	        		}
 	        		if (!ple.username.equals("")) {
-	        			transmit(ple.username + " has left the chat");
+	        			transmit(ple.username + " has left the chat\n");
 	        		}
 	        	}
 	        }).start();
@@ -75,10 +106,10 @@ class Handling implements Runnable {
 				s.getOutputStream().write(data);
 			}
 			catch (Exception e) {
-				System.out.println("Exception in transmitting message: " + e);
+				servlg.append("Exception in transmitting message: " + e);
 			}
 		}
-		System.out.println("\"" + message);
+		chatlg.append(message);
 	}
 	public void run() {}
 	void serve() throws Exception {
@@ -127,7 +158,7 @@ class Handling implements Runnable {
 			return;
 		}
 		if (ti != 11) {
-			System.out.println("invalid packet");
+			servlg.append("invalid packet");
 			out.write(13);
 			out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
@@ -175,10 +206,10 @@ class Handling implements Runnable {
 		}
 		username = name;
 		out.write(7);
-		out.write(("Welcome back, " + name).getBytes(StandardCharsets.UTF_8));
+		out.write(("Welcome back, " + name + "\n").getBytes(StandardCharsets.UTF_8));
 		out.writeTo(outS);
 		out.reset();
-		System.out.println("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+		servlg.append("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 		byte[] mData;
 		String message;
 		synchronized (lSync) {
@@ -186,18 +217,24 @@ class Handling implements Runnable {
 			tl.add(socket);
 			socks = tl;
 		}
+		synchronized (nSync) {
+			List<String> tn = connected;
+			tn.add(name);
+			connected = tn;
+		}
 		Thread.sleep(200);
-		transmit(name + " has entered the chat");
+		transmit(name + " has entered the chat\n");
+		List<String> tsl;
 		while (true) {
 			while (inS.available() < 1) {
-				Thread.sleep(200);
+				Thread.sleep(50);
 			}
 			ti = inS.read();
 			if (ti == 13) {
 				return;
 			}
 			if (ti != 7) {
-				System.out.println("invalid packet");
+				servlg.append("invalid packet");
 				out.write(13);
 				out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
 				out.writeTo(outS);
@@ -206,7 +243,23 @@ class Handling implements Runnable {
 			mData = new byte[inS.available()];
 			inS.read(mData);
 			message = new String(mData, StandardCharsets.UTF_8);
-			transmit("{" + name + "} " + message);
+			transmit("{" + name + "} " + message + "\n");
+			if (message.length() > 0 && message.charAt(0) == '!') {
+				switch (message) {
+					case ("!help"):
+						transmit("Server: Server commands: !help - View available commands, !connected - View connected client usernames\n");
+						break;
+					case ("!connected"):
+						transmit("Server: Connected client usernames:\n");
+						tsl = connected;
+						for (String s : tsl) {
+							transmit(s + "\n");
+						}
+						break;
+					default:
+						transmit("Server: Unknown command, use !help to view available commands\n");
+				}
+			}
 		}
 	}
 }
