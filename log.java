@@ -7,7 +7,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -112,7 +111,7 @@ public class log implements Runnable {
 		}
 		String time = String.valueOf(tiL);
 		String ext = "00000000000000000000".substring(time.length());
-		chab.put(ext + time + data + "\r\n");
+		chab.put(ext + time + data);
 		if (annc) {
 			new Thread(new Runnable() {
 	        	public void run() {
@@ -122,7 +121,14 @@ public class log implements Runnable {
 		}
 	}
 	public synchronized void append(String data, boolean show) {
-		chab.put(format.format(new Date()) + " " + data + "\r\n");
+		long tiL = System.currentTimeMillis();
+		if (tiL < 0) {
+			System.out.println("dates before 1970 are not supported");
+			System.exit(0);
+		}
+		String time = String.valueOf(tiL);
+		String ext = "00000000000000000000".substring(time.length());
+		chab.put(ext + time + data);
 		if (show) {
 			new Thread(new Runnable() {
 	        	public void run() {
