@@ -13,25 +13,46 @@ class Client {
 	public static final double version = 0.1;//Version
 	public static log conversation = new log("cN-chatLogged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
 	public static void main(String[] args) throws Exception {
-		String uname = "defaultAccount";
-		String password = "BennyAndTheJets3301";
-		Socket cnct = new Socket(InetAddress.getByAddress(new byte[]{127, 0, 0, 1}), 15227);
+		int ti;
+		byte[] ip = new byte[4];
+		int port = 0;
+		try {
+			String[] inputs = args[2].split(":");
+			port = Integer.valueOf(inputs[1]);
+			String ipS = inputs[0];
+			String[] nums = ipS.split("\\.");
+			for (byte n = 0; n < 4; n++) {
+				ti = Integer.valueOf(nums[n]);
+				if (ti > 127) {
+					ti -= 256;
+				}
+				ip[n] = (byte) ti;
+			}
+		}
+		catch (Exception e) {
+			System.out.println("could not parse host: " + e);
+			System.exit(1);
+		}
+		String uname = args[0];//"defaultAccount";
+		String password = args[1];//"BennyAndTheJets3301";
+		System.out.println("Attempting connection...");
+		Socket cnct = new Socket(InetAddress.getByAddress(ip), port);
 		OutputStream outS = cnct.getOutputStream();
 		InputStream inS = cnct.getInputStream();
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		DataOutputStream ouD = new DataOutputStream(out);
 		DataInputStream inD = new DataInputStream(inS);
-		int ti;
 		ouD.writeByte(12);
 		ouD.writeDouble(version);
 		ouD.flush();
 		out.writeTo(outS);
 		out.reset();
 		byte[] messBs;
-		while (inS.available() < 1) {
-			Thread.sleep(200);
-		}
 		ti = inS.read();
+		if (ti == -1) {
+			System.out.println("unexpectedly disconnected from server");
+			System.exit(2);
+		}
 		if (ti == 13) {
 			messBs = new byte[inS.available()];
 			inS.read(messBs);
@@ -65,10 +86,11 @@ class Client {
         			int si;
         			String tex;
         			while (true) {
-						while (inS.available() < 1) {
-							Thread.sleep(50);
-						}
 						si = inS.read();
+						if (si == -1) {
+							System.out.println("unexpectedly disconnected from server");
+							System.exit(2);
+						}
 						if (si == 13) {
 							message = new byte[inS.available()];
 							inS.read(message);

@@ -137,6 +137,5 @@ public class log implements Runnable {
 	        }).start();
 		}
 	}
-	public void run() {
-	}
+	public void run() {}
 }

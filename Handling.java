@@ -15,10 +15,9 @@ import java.util.List;
 class Handling implements Runnable {
 	public static log chatlg = new log("cN-chatLog.txt", (short) 30, "chat", 65536, true, StandardCharsets.UTF_8);
 	public static log servlg = new log("cN-serverLog.txt", (short) 30, "server", 65536, true, StandardCharsets.UTF_8);
-	static Object lSync = new Object();
-	static Object nSync = new Object();
 	static volatile List<String> connected = new ArrayList<String>();
 	static volatile List<Socket> socks = new ArrayList<Socket>();
+	public static volatile String motd = "Development server, you may experence bugs";
 	//For future-proofing, please add no user names over 64 bytes when encoded in UTF-8
 	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0x8cd1d8ce, 0xbdbe6b8c, 0xf858694c, 0xd7ecd800, 0x7e7a956a, 0xb4b82a54, 0xcde27bf9, 0x6c06e2eb};
 	static String[] unames = {"guest", "defaultAccount"};
@@ -77,12 +76,12 @@ class Handling implements Runnable {
 	        		catch (Exception e) {
 	        			System.out.println(e);
 	        		}
-	        		synchronized (lSync) {
+	        		synchronized (socks) {
 	        			List<Socket> tl = socks;
 	        			tl.remove(ple.socket);
 	        			socks = tl;
 	        		}
-	        		synchronized (nSync) {
+	        		synchronized (connected) {
 	        			List<String> tn = connected;
 	        			tn.remove(ple.username);
 	        			connected = tn;
@@ -107,6 +106,11 @@ class Handling implements Runnable {
 			}
 			catch (Exception e) {
 				servlg.append("Exception in transmitting message: " + e + "\n");
+				synchronized (socks) {
+        			List<Socket> sl = socks;
+        			sl.remove(s);
+        			socks = sl;
+        		}
 			}
 		}
 		chatlg.append(message);
@@ -120,6 +124,7 @@ class Handling implements Runnable {
 		DataOutputStream ouD = new DataOutputStream(out);
 		out.write(ByteBuffer.allocate(8).putLong(System.currentTimeMillis()).array());
 		//TODO Possibly fix previous line, is backing array equal length equal to allocation value in all implementations?
+		int si;
 		ouD.writeInt(sRand.nextInt());
 		ouD.writeInt(sRand.nextInt());
 		ouD.flush();
@@ -129,7 +134,8 @@ class Handling implements Runnable {
 		while (inS.available() < 1) {
 			Thread.sleep(200);
 		}
-		if (inS.read() == 13) {
+		si = inS.read();
+		if (si == 13 || si == -1) {
 			return;
 		}
 		double ver = inD.readDouble();
@@ -150,11 +156,8 @@ class Handling implements Runnable {
 		out.write(salt);
 		out.writeTo(outS);//Salt packet, ha-ha-ha
 		out.reset();
-		while (inS.available() < 1) {
-			Thread.sleep(200);
-		}
 		int ti = inS.read();
-		if (ti == 13) {
+		if (ti == 13 || ti == -1) {
 			return;
 		}
 		if (ti != 11) {
@@ -168,12 +171,15 @@ class Handling implements Runnable {
 		for (byte n = 0; n < 32; n++) {
 			ti = inS.read();
 			if (ti == -1) {
-				throw new Exception();
+				return;
 			}
 			if (ti > 127) {
 				ti -= 256;
 			}
 			resp[n] = (byte) ti;
+		}
+		if (inS.available() < 1) {
+			return;
 		}
 		byte[] nBs = new byte[inS.available()];
 		//TODO .available() is an, "estimate", is it exact for all implementations of socket-based 'InputStream's?
@@ -181,7 +187,7 @@ class Handling implements Runnable {
 		String name = new String(nBs, StandardCharsets.UTF_8);
 		if (!names.contains(name)) {
 			out.write(13);
-			out.write("invalid username".getBytes(StandardCharsets.UTF_8));
+			out.write("username does not exist on this server".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
 			return;
 		}
@@ -206,18 +212,18 @@ class Handling implements Runnable {
 		}
 		username = name;
 		out.write(7);
-		out.write(("Welcome back, " + name + "\n").getBytes(StandardCharsets.UTF_8));
+		out.write(("Welcome back, " + name + "\n" + motd + "\n").getBytes(StandardCharsets.UTF_8));
 		out.writeTo(outS);
 		out.reset();
 		servlg.append("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "\n");
 		byte[] mData;
 		String message;
-		synchronized (lSync) {
+		synchronized (socks) {
 			List<Socket> tl = socks;
 			tl.add(socket);
 			socks = tl;
 		}
-		synchronized (nSync) {
+		synchronized (connected) {
 			List<String> tn = connected;
 			tn.add(name);
 			connected = tn;
@@ -226,11 +232,12 @@ class Handling implements Runnable {
 		transmit(name + " has entered the chat\n");
 		List<String> tsl;
 		while (true) {
-			while (inS.available() < 1) {
-				Thread.sleep(50);
-			}
 			ti = inS.read();
 			if (ti == 13) {
+				return;
+			}
+			if (ti == -1) {
+				servlg.append("client socket was unexpectedly disconnected\n");
 				return;
 			}
 			if (ti != 7) {
