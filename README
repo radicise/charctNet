@@ -1,4 +1,5 @@
-Use <username> <password> <IPv4address>:<remote port> as launch arguments for the client
+Use <username> <password> <remoteIPv4Address>:<remotePort> as launch arguments for the client
 Password for 'defaultAccount' is 'BennyAndTheJets3301'
-'guest' is not authenticated
+Logging in with username 'guest' does not require password authentication
 Server runs on port 15227
+Insecure
