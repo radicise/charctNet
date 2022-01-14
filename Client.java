@@ -10,7 +10,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 class Client {
-	public static final double version = 0.1;//Version
+	public static final double version = 0.2;//Version
 	public static log conversation = new log("cN-chatLogged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
 	public static void main(String[] args) throws Exception {
 		int ti;
@@ -101,7 +101,7 @@ class Client {
 							System.out.println("disconnected by client for invalid packet" + si);
 							System.exit(0);
 						}
-						message = new byte[inS.available()];
+						message = new byte[inD.readShort()];
 						inS.read(message);
 						tex = new String(message, StandardCharsets.UTF_8);
 						System.out.print(tex);
@@ -116,6 +116,7 @@ class Client {
         }).start();
 		BufferedReader inRead = new BufferedReader(new InputStreamReader(System.in));
 		String input;
+		byte[] mess;
 		while (true) {
 			input = inRead.readLine();
 			if (input.equals("/help")) {
@@ -128,9 +129,14 @@ class Client {
 				Thread.sleep(200);
 				System.exit(0);
 			}
+			else if (input.length() > 8000) {
+				System.out.println("client: you may not send messages in excess of 8000 characters!");
+			}
 			else {
 				out.write(7);
-				out.write(input.getBytes(StandardCharsets.UTF_8));
+				mess = input.getBytes(StandardCharsets.UTF_8);
+				ouD.writeShort(mess.length);
+				out.write(mess);
 				out.writeTo(outS);
 				out.reset();
 			}

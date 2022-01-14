@@ -24,7 +24,7 @@ class Handling implements Runnable {
 	static List<String> namel = Arrays.asList(unames);
 	static ArrayList<String> names = new ArrayList<String>(namel);
 	static SecureRandom sRand = new SecureRandom();
-	public static final double version = 0.1;//version
+	public static final double version = 0.2;//version
 	public static int port = 15227;
 	Socket socket;
 	String username = "";
@@ -95,11 +95,21 @@ class Handling implements Runnable {
 		}
 	}
 	static void transmit (String message) {
+		ByteArrayOutputStream tBarOS = new ByteArrayOutputStream();
+		DataOutputStream dOS = new DataOutputStream(tBarOS);
 		List<Socket> tl = socks;
 		byte[] mBs = message.getBytes(StandardCharsets.UTF_8);
-		byte[] data = new byte[mBs.length + 1];
-		System.arraycopy(mBs, 0, data, 1, mBs.length);
-		data[0] = 7;
+		tBarOS.write(7);
+		try {
+			dOS.writeShort(mBs.length);
+			dOS.write(mBs);
+			dOS.flush();
+		}
+		catch (Exception e) {
+			servlg.append("exception in forming message packet: " + e);
+			return;
+		}
+		byte[] data = tBarOS.toByteArray();
 		for (Socket s : tl) {
 			try {
 				s.getOutputStream().write(data);
@@ -145,7 +155,7 @@ class Handling implements Runnable {
 			out.writeTo(outS);
 			return;
 		}
-		if (ver > version) {
+		if (ver != version) {
 			out.write(13);
 			out.write("requested protocol not available".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
@@ -212,7 +222,17 @@ class Handling implements Runnable {
 		}
 		username = name;
 		out.write(7);
-		out.write(("Welcome back, " + name + "\n" + motd + "\n").getBytes(StandardCharsets.UTF_8));
+		byte[] greeting = ("Welcome back, " + name + "\n").getBytes(StandardCharsets.UTF_8);
+		ouD.writeShort(greeting.length);
+		ouD.flush();
+		out.write(greeting);
+		out.writeTo(outS);
+		out.reset();
+		greeting = (motd + "\n").getBytes(StandardCharsets.UTF_8);
+		out.write(7);
+		ouD.writeShort(greeting.length);
+		ouD.flush();
+		out.write(greeting);
 		out.writeTo(outS);
 		out.reset();
 		servlg.append("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "\n");
@@ -247,14 +267,14 @@ class Handling implements Runnable {
 				out.writeTo(outS);
 				return;
 			}
-			mData = new byte[inS.available()];
+			mData = new byte[inD.readShort()];
 			inS.read(mData);
 			message = new String(mData, StandardCharsets.UTF_8);
 			transmit("{" + name + "} " + message + "\n");
 			if (message.length() > 0 && message.charAt(0) == '!') {
 				switch (message) {
 					case ("!help"):
-						transmit("Server: Server commands: !help - View available commands, !connected - View connected client usernames\n");
+						transmit("server: Server commands: !help - View available commands, !connected - View connected client usernames\n");
 						break;
 					case ("!connected"):
 						transmit("Server: Connected client usernames:\n");
@@ -264,7 +284,7 @@ class Handling implements Runnable {
 						}
 						break;
 					default:
-						transmit("Server: Unknown command, use !help to view available commands\n");
+						transmit("server: Unknown command, use !help to view available commands\n");
 				}
 			}
 		}
