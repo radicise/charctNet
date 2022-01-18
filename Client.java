@@ -13,6 +13,9 @@ class Client {
 	public static final double version = 0.2;//Version
 	public static log conversation = new log("cN-chatLogged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
 	public static void main(String[] args) throws Exception {
+		System.out.println("Starting program...");
+		String inputEncoding = "UTF-8";
+		boolean useTerminalEscapes = true;
 		int ti;
 		byte[] ip = new byte[4];
 		int port = 0;
@@ -28,10 +31,68 @@ class Client {
 				}
 				ip[n] = (byte) ti;
 			}
+			String ts;
+			for (int n = 3; n < args.length; n++) {
+				ts = args[n].toLowerCase();
+				switch (ts) {
+					case ("useterminalescapes=true"):
+						useTerminalEscapes = true;
+						break;
+					case ("useeerminalescapes=false"):
+						useTerminalEscapes = false;
+						break;
+					case ("inputencoding='utf-8'"):
+						inputEncoding = "UTF-8";
+						break;
+					case ("inputencoding='utf-16le'"):
+						inputEncoding = "UTF-16LE";
+						break;
+					case ("inputencoding='utf-16be'"):
+						inputEncoding = "UTF-16BE";
+						break;
+					case ("inputencoding='utf-16'"):
+						inputEncoding = "UTF-16";
+						break;
+					case ("inputencoding='us-ascii'"):
+						inputEncoding = "US-ASCII";
+						break;
+					case ("inputencoding='iso-8859-1'"):
+						inputEncoding = "ISO-8859-1";
+						break;
+					case ("forceterminalescapes"):
+						break;
+					default:
+						System.out.println("invalid operation modifier, launching program anyways");
+				}
+			}
 		}
 		catch (Exception e) {
-			System.out.println("could not parse host: " + e);
+			System.out.println("could not parse arguments: " + e);
 			System.exit(1);
+		}
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		if (useTerminalEscapes) {
+			System.in.skip(System.in.available());
+			System.out.print("\u001b[6n");
+			Thread.sleep(1000);
+			//TODO Get the entirety of the terminal's response (or non-response)
+			byte[] status = out.toByteArray();
+			String stat = new String(status, inputEncoding);
+			if (stat.length() > 4) {
+				if (stat.charAt(stat.length() - 1) == 'R' || stat.charAt(stat.length() - 1) == 'r') {
+					useTerminalEscapes = false;
+					System.out.print(stat.substring(1));
+				}
+			}
+			useTerminalEscapes = !useTerminalEscapes;
+			System.out.println("knngjknr" + useTerminalEscapes);
+		}
+		if (!useTerminalEscapes) {
+			for (int n = 3; n < args.length; n++) {
+				if (args[n].toLowerCase().equals("forceterminalescapes")) {
+					useTerminalEscapes = true;
+				}
+			}
 		}
 		String uname = args[0];//"defaultAccount";
 		String password = args[1];//"BennyAndTheJets3301";
@@ -39,7 +100,6 @@ class Client {
 		Socket cnct = new Socket(InetAddress.getByAddress(ip), port);
 		OutputStream outS = cnct.getOutputStream();
 		InputStream inS = cnct.getInputStream();
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		DataOutputStream ouD = new DataOutputStream(out);
 		DataInputStream inD = new DataInputStream(inS);
 		ouD.writeByte(12);
@@ -79,6 +139,10 @@ class Client {
 		out.reset();
 		conversation.startExecutor();
 		conversation.append("+Connected to " + cnct.getInetAddress().getHostAddress() + ":" + cnct.getPort() + "\n");
+		while (inS.available() < 1) {
+			Thread.sleep(50);
+		}
+		boolean useTeEsc = useTerminalEscapes;
 		new Thread(new Runnable() {
         	public void run() {
         		try {
@@ -104,7 +168,12 @@ class Client {
 						message = new byte[inD.readShort()];
 						inS.read(message);
 						tex = new String(message, StandardCharsets.UTF_8);
-						System.out.print(tex);
+						if (useTeEsc) {
+							System.out.print("\u001b7\u001b[1S\u001b[1A\u001b[1G\u001b[1L" + tex + "\u001b[0m\u001b8\u001b[1B");
+						}
+						else {
+							System.out.print(tex);
+						}
 						conversation.append("\"" + tex);
         			}
 				}
@@ -114,11 +183,17 @@ class Client {
 				}
         	}
         }).start();
-		BufferedReader inRead = new BufferedReader(new InputStreamReader(System.in));
+		BufferedReader inRead = new BufferedReader(new InputStreamReader(System.in, inputEncoding));
 		String input;
 		byte[] mess;
-		while (true) {
+		while (true) { 
 			input = inRead.readLine();
+			if (useTerminalEscapes) {
+				System.out.print("\u001b[1T\u001b[2K\u001b[1G");
+			}
+			if (input.length() < 1) {
+				continue;
+			}
 			if (input.equals("/help")) {
 				System.out.println("Use \"/exit\" to exit the program");
 			}

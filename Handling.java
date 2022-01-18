@@ -164,7 +164,7 @@ class Handling implements Runnable {
 		out.reset();
 		out.write(1);
 		out.write(salt);
-		out.writeTo(outS);//Salt packet, ha-ha-ha
+		out.writeTo(outS);
 		out.reset();
 		int ti = inS.read();
 		if (ti == 13 || ti == -1) {
@@ -192,7 +192,7 @@ class Handling implements Runnable {
 			return;
 		}
 		byte[] nBs = new byte[inS.available()];
-		//TODO .available() is an, "estimate", is it exact for all implementations of socket-based 'InputStream's?
+		//TODO It is never correct to use the return value of InputStream.available() to allocate a buffer intended to hold all data in the stream
 		inS.read(nBs);
 		String name = new String(nBs, StandardCharsets.UTF_8);
 		if (!names.contains(name)) {
