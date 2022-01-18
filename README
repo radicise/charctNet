@@ -1,5 +1,5 @@
 Use <username> <password> <remoteIPv4Address>:<remotePort> [<otherArgs>] as launch arguments for the client
-Other arguments are space-delimited and are:"useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'", "forceterminalescapes"
+Other arguments are space-delimited and are: "useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'", "forceterminalescapes"
 Encoding of output to the terminal can be changed with Java arguments
 Password for 'defaultAccount' is 'BennyAndTheJets3301'
 Logging in with username 'guest' does not require password authentication
