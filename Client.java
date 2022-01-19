@@ -16,7 +16,7 @@ class Client {
 		System.out.println("Starting program...");
 		String inputEncoding = "UTF-8";
 		boolean useTerminalEscapes = true;
-		int ti;
+		int ti = 0;
 		byte[] ip = new byte[4];
 		int port = 0;
 		try {
@@ -38,7 +38,7 @@ class Client {
 					case ("useterminalescapes=true"):
 						useTerminalEscapes = true;
 						break;
-					case ("useeerminalescapes=false"):
+					case ("useterminalescapes=false"):
 						useTerminalEscapes = false;
 						break;
 					case ("inputencoding='utf-8'"):
@@ -59,8 +59,6 @@ class Client {
 					case ("inputencoding='iso-8859-1'"):
 						inputEncoding = "ISO-8859-1";
 						break;
-					case ("forceterminalescapes"):
-						break;
 					default:
 						System.out.println("invalid operation modifier, launching program anyways");
 				}
@@ -71,33 +69,17 @@ class Client {
 			System.exit(1);
 		}
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		if (useTerminalEscapes) {
-			System.in.skip(System.in.available());
-			System.out.print("\u001b[6n");
-			Thread.sleep(1000);
-			//TODO Get the entirety of the terminal's response (or non-response)
-			byte[] status = out.toByteArray();
-			String stat = new String(status, inputEncoding);
-			if (stat.length() > 4) {
-				if (stat.charAt(stat.length() - 1) == 'R' || stat.charAt(stat.length() - 1) == 'r') {
-					useTerminalEscapes = false;
-					System.out.print(stat.substring(1));
-				}
-			}
-			useTerminalEscapes = !useTerminalEscapes;
-			System.out.println("knngjknr" + useTerminalEscapes);
-		}
-		if (!useTerminalEscapes) {
-			for (int n = 3; n < args.length; n++) {
-				if (args[n].toLowerCase().equals("forceterminalescapes")) {
-					useTerminalEscapes = true;
-				}
-			}
-		}
 		String uname = args[0];//"defaultAccount";
 		String password = args[1];//"BennyAndTheJets3301";
-		System.out.println("Attempting connection...");
-		Socket cnct = new Socket(InetAddress.getByAddress(ip), port);
+		System.out.println("Attempting connection...\nIf you see visible codes in your terminal, add \"useTerminalEscapes=false\" to program launch arguments");
+		Socket cnct = null;
+		try {
+			cnct = new Socket(InetAddress.getByAddress(ip), port);
+		}
+		catch (Exception e) {
+			System.out.println("Could not connect to server: " + e);
+			System.exit(3);
+		}
 		OutputStream outS = cnct.getOutputStream();
 		InputStream inS = cnct.getInputStream();
 		DataOutputStream ouD = new DataOutputStream(out);
@@ -186,7 +168,7 @@ class Client {
 		BufferedReader inRead = new BufferedReader(new InputStreamReader(System.in, inputEncoding));
 		String input;
 		byte[] mess;
-		while (true) { 
+		while (true) {
 			input = inRead.readLine();
 			if (useTerminalEscapes) {
 				System.out.print("\u001b[1T\u001b[2K\u001b[1G");
@@ -194,15 +176,18 @@ class Client {
 			if (input.length() < 1) {
 				continue;
 			}
-			if (input.equals("/help")) {
+			if (input.toLowerCase().equals("/help")) {
 				System.out.println("Use \"/exit\" to exit the program");
 			}
-			else if (input.equals("/exit")) {
+			else if (input.toLowerCase().equals("/exit")) {
 				outS.write(13);
 				System.out.println("Exiting...");
 				conversation.flush();
 				Thread.sleep(200);
 				System.exit(0);
+			}
+			else if (input.toLowerCase().equals("/showconfig")) {
+				System.out.println("useTerminalEscapes=" + useTerminalEscapes + "\ninputEncoding=" + inputEncoding);
 			}
 			else if (input.length() > 8000) {
 				System.out.println("client: you may not send messages in excess of 8000 characters!");
