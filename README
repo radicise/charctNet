@@ -1,8 +1,16 @@
-Terminal ANSI escape support does currently not work, use "forceterminalescapes" in <otherArgs> to enable ANSI escapes in the CLI
+!!!Add "useterminalescapes=false" to program launch arguments to disable terminal escapes (may cause undesired codes to display on unsupported terminals, this prevents some features from working and introduces some visual bugs!!!
+!!!THIS PREVENTS SOME FEATURES FROM WORKING AND INTRODUCES SOME VISUAL BUGS!!!
 Use <username> <password> <remoteIPv4Address>:<remotePort> [<otherArgs>] as launch arguments for the client
-Other arguments are space-delimited and are: "useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'", "forceterminalescapes"
+Other arguments are space-delimited and are: "useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'"
 Encoding of output to the terminal can be changed with Java arguments
 Password for 'defaultAccount' is 'BennyAndTheJets3301'
 Logging in with username 'guest' does not require password authentication
+Client-side commands:
+/help
+/exit
+/showConfig
+Serverside commands:
+!help
+!connected
 Server runs on port 15227
 Insecure
