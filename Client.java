@@ -177,7 +177,7 @@ class Client {
 				continue;
 			}
 			if (input.toLowerCase().equals("/help")) {
-				System.out.println("Use \"/exit\" to exit the program");
+				System.out.println("Use \"/exit\" to exit the program\nUse \"/showConfig\" to display the current program configuration");
 			}
 			else if (input.toLowerCase().equals("/exit")) {
 				outS.write(13);
