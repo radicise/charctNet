@@ -1,4 +1,4 @@
-!!!Add "useterminalescapes=false" to program launch arguments to disable terminal escapes (may cause undesired codes to display on unsupported terminals, this prevents some features from working and introduces some visual bugs!!!
+!!!Add "useterminalescapes=false" to program launch arguments to disable terminal escapes (can stop undesired codes from displaying on unsupported terminals, this prevents some features from working and introduces some visual bugs!!!
 !!!THIS PREVENTS SOME FEATURES FROM WORKING AND INTRODUCES SOME VISUAL BUGS!!!
 Use <username> <password> <remoteIPv4Address>:<remotePort> [<otherArgs>] as launch arguments for the client
 Other arguments are space-delimited and are: "useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'"
