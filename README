@@ -1,7 +1,7 @@
 !!!Add "useterminalescapes=false" to program launch arguments to disable terminal escapes (can stop undesired codes from displaying on unsupported terminals, this prevents some features from working and introduces some visual bugs!!!
 !!!THIS PREVENTS SOME FEATURES FROM WORKING AND INTRODUCES SOME VISUAL BUGS!!!
 Use <username> <password> <remoteIPv4Address>:<remotePort> [<launchOptions>] as launch arguments for the client
-Launch options are space-delimited and chosen at the user's discretion. They include: "useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'"
+Launch options are space-delimited and chosen at the user's discretion. They include: "useterminalescapes=true", "useterminalescapes=false", "inputencoding='utf-8'", "inputencoding='utf-16le'", "inputencoding='utf-16be'", "inputencoding='utf-16'", "inputencoding='us-ascii'", "inputencoding='iso-8859-1'", "colour='24b'", "colour='3b'", "colour='nocolour'"
 Encoding of output to the terminal can be changed with Java arguments
 Password for 'defaultAccount' is 'BennyAndTheJets3301'
 Logging in with username 'guest' does not require password authentication
