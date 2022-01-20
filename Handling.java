@@ -17,15 +17,17 @@ class Handling implements Runnable {
 	public static log servlg = new log("cN-serverLog.txt", (short) 30, "server", 65536, true, StandardCharsets.UTF_8);
 	static volatile List<String> connected = new ArrayList<String>();
 	static volatile List<Socket> socks = new ArrayList<Socket>();
-	public static volatile String motd = "Development server, you may experence bugs";
+	public static volatile String motd = "Development server, you may experience bugs";
 	//For future-proofing, please add no user names over 64 bytes when encoded in UTF-8
 	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0x8cd1d8ce, 0xbdbe6b8c, 0xf858694c, 0xd7ecd800, 0x7e7a956a, 0xb4b82a54, 0xcde27bf9, 0x6c06e2eb};
 	static String[] unames = {"guest", "defaultAccount"};
 	static List<String> namel = Arrays.asList(unames);
 	static ArrayList<String> names = new ArrayList<String>(namel);
 	static SecureRandom sRand = new SecureRandom();
-	public static final double version = 0.2;//version
+	public static final double version = 0.3;//version
 	public static int port = 15227;
+	public static volatile byte[] colB = new byte[]{20, 2, -127, -127, -127};
+	public static volatile byte[] colF = new byte[]{20, 3, -127, -127, -127};
 	Socket socket;
 	String username = "";
 	Handling(Socket sock) {
@@ -33,6 +35,13 @@ class Handling implements Runnable {
 	}
 	public static void main(String[] arg) {
 		System.out.println("Server is starting...");
+		try {
+			servlg.startExecutor();
+		}
+		catch (Exception e) {
+			System.out.println("Exception starting server log: " + e);
+			System.exit(0);
+		}
 		try {
 			ServerSocket servsock = new ServerSocket(port);
 			accept(servsock);
@@ -60,7 +69,6 @@ class Handling implements Runnable {
 		System.exit(0);
 	}
 	static void accept(ServerSocket servsock) throws Exception {
-		servlg.startExecutor();
 		chatlg.startExecutor();
 		servlg.append("Server has started on port " + port + "\n");
 		while (true) {
@@ -94,10 +102,34 @@ class Handling implements Runnable {
 	        Thread.sleep(500);
 		}
 	}
+	static void send (byte[] data) {
+		List<Socket> tl = socks;
+		for (Socket s : tl) {
+			try {
+				s.getOutputStream().write(data);
+			}
+			catch (Exception e) {
+				servlg.append("Exception in transmitting data: " + e + "\n");
+				synchronized (socks) {
+        			List<Socket> sl = socks;
+        			sl.remove(s);
+        			socks = sl;
+        		}
+			}
+		}
+	}
+	static void changeColor(int uR, int uG, int uB, boolean bg, boolean noColor) {
+		send(new byte[]{20, (byte) ((bg ? 1 : 0) + (noColor ? 2 : 0)),(byte) uR, (byte) uG, (byte) uB});
+		if (bg) {
+			colB = new byte[]{20, (byte) ((bg ? 1 : 0) + (noColor ? 2 : 0)),(byte) uR, (byte) uG, (byte) uB};
+		}
+		else {
+			colF = new byte[]{20, (byte) ((bg ? 1 : 0) + (noColor ? 2 : 0)),(byte) uR, (byte) uG, (byte) uB};
+		}
+	}
 	static void transmit (String message) {
 		ByteArrayOutputStream tBarOS = new ByteArrayOutputStream();
 		DataOutputStream dOS = new DataOutputStream(tBarOS);
-		List<Socket> tl = socks;
 		byte[] mBs = message.getBytes(StandardCharsets.UTF_8);
 		tBarOS.write(7);
 		try {
@@ -109,20 +141,7 @@ class Handling implements Runnable {
 			servlg.append("exception in forming message packet: " + e);
 			return;
 		}
-		byte[] data = tBarOS.toByteArray();
-		for (Socket s : tl) {
-			try {
-				s.getOutputStream().write(data);
-			}
-			catch (Exception e) {
-				servlg.append("Exception in transmitting message: " + e + "\n");
-				synchronized (socks) {
-        			List<Socket> sl = socks;
-        			sl.remove(s);
-        			socks = sl;
-        		}
-			}
-		}
+		send(tBarOS.toByteArray());
 		chatlg.append(message);
 	}
 	public void run() {}
@@ -141,7 +160,7 @@ class Handling implements Runnable {
 		MessageDigest dig = MessageDigest.getInstance("SHA-256");
 		byte[] salt = dig.digest(out.toByteArray());
 		out.reset();
-		while (inS.available() < 1) {
+		while (inS.available() < 1) {//Bad use of .available()?
 			Thread.sleep(200);
 		}
 		si = inS.read();
@@ -188,11 +207,10 @@ class Handling implements Runnable {
 			}
 			resp[n] = (byte) ti;
 		}
-		if (inS.available() < 1) {
+		if (inS.available() < 1) {//Bad use of .available()?
 			return;
 		}
-		byte[] nBs = new byte[inS.available()];
-		//TODO It is never correct to use the return value of InputStream.available() to allocate a buffer intended to hold all data in the stream
+		byte[] nBs = new byte[inD.readShort()];
 		inS.read(nBs);
 		String name = new String(nBs, StandardCharsets.UTF_8);
 		if (!names.contains(name)) {
@@ -222,6 +240,8 @@ class Handling implements Runnable {
 		}
 		username = name;
 		out.write(7);
+		outS.write(colB);
+		outS.write(colF);
 		byte[] greeting = ("Welcome back, " + name + "\n").getBytes(StandardCharsets.UTF_8);
 		ouD.writeShort(greeting.length);
 		ouD.flush();
@@ -251,6 +271,10 @@ class Handling implements Runnable {
 		Thread.sleep(200);
 		transmit(name + " has entered the chat\n");
 		List<String> tsl;
+		int io;
+		int it;
+		int ih;
+		String us;
 		while (true) {
 			ti = inS.read();
 			if (ti == 13) {
@@ -274,7 +298,7 @@ class Handling implements Runnable {
 			if (message.length() > 0 && message.charAt(0) == '!') {
 				switch (message) {
 					case ("!help"):
-						transmit("server: Server commands: !help - View available commands, !connected - View connected client usernames\n");
+						transmit("server: Server commands: !help - View available commands, !connected - View connected client usernames, !theme fg|bg <r> <g> <b> - Change the server theme, use /help to view client-side commands\n");
 						break;
 					case ("!connected"):
 						transmit("Server: Connected client usernames:\n");
@@ -284,6 +308,38 @@ class Handling implements Runnable {
 						}
 						break;
 					default:
+						if (message.split(" ")[0].equals("!theme")) {
+							if (message.toLowerCase().equals("!theme clear")) {
+								changeColor(0, 0, 0, false, true);
+								changeColor(0, 0, 0, true, true);
+								transmit("server: cleared the theme\n");
+								break;
+							}
+							if (message.split(" ").length < 3) {
+								transmit("server: invalid argument count\n");
+								break;
+							}
+							try {
+								if ((!(message.split(" ")[1].equals("fg"))) && (!(message.split(" ")[1].equals("bg")))) {
+									throw new Exception();
+								}
+								io = Integer.valueOf(message.split(" ")[2]);
+								it = Integer.valueOf(message.split(" ")[3]);
+								ih = Integer.valueOf(message.split(" ")[4]);;
+								changeColor(io, it, ih, message.split(" ")[1].equals("bg"), false);
+								if (message.split(" ")[1].equals("bg")) {
+									us = "background";
+								}
+								else {
+									us = "foreground";
+								}
+								transmit("server: changed the " + us + " colour to rgb " + (io % 256) + " " + (it % 256) + " " + (ih % 256) + "\n");
+							}
+							catch (Exception e) {
+								transmit("server: could not parse arguments\n");
+							}
+							break;
+						}
 						transmit("server: Unknown command, use !help to view available commands\n");
 				}
 			}

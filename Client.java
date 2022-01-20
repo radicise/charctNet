@@ -7,15 +7,57 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 class Client {
-	public static final double version = 0.2;//Version
+	public static final double version = 0.3;//Version
 	public static log conversation = new log("cN-chatLogged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
-	public static void main(String[] args) throws Exception {
+	static String fg = "[0m";
+	static String bg = "[0m";
+	static volatile String theme = "\u001b[0m\u001b[0m";
+	static volatile String termColour = "24b";
+	static volatile boolean useTerminalEscapes;
+	public static String termColor(int r, int g, int b, boolean bg) {
+		byte a = (byte) (bg ? 10 : 0);
+		if (Math.min(Math.min(r, g), b) < 0 || Math.max(Math.max(r, g), b) > 255) {
+			return "[0m";
+		}
+		if (termColour.equals("3b")) {
+			return "[" + (a + 30 + (r >> 7) + ((g & 0x80) >> 6) + ((b & 0x80) >> 5)) + "m";
+		}
+		if (termColour.equals("24b")) {
+			return "["+ (38 + a) + ";2;" + r + ";" + g + ";" + b + "m";
+		}
+		if (termColour.equals("noColor")) {
+			return "[0m";
+		}
+		return "[0m";
+	}
+	public static void main(String[] arg) {
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+	        public void run() {
+	        	if (useTerminalEscapes) {
+					System.out.print("\u001b[0m");
+				}
+	        }
+	    });
+		try {
+			mai(arg);
+		}
+		catch (Exception e) {
+			if (useTerminalEscapes) {
+				System.out.print("\u001b[0m");
+			}
+			System.out.println("Exception occurred: " + e);
+			System.exit(0);
+		}
+		System.exit(0);
+	}
+	public static void mai(String[] args) throws Exception {
 		System.out.println("Starting program...");
-		String inputEncoding = "UTF-8";
-		boolean useTerminalEscapes = true;
+		String inputEncoding = Charset.defaultCharset().name();
+		useTerminalEscapes = true;
 		int ti = 0;
 		byte[] ip = new byte[4];
 		int port = 0;
@@ -59,6 +101,12 @@ class Client {
 					case ("inputencoding='iso-8859-1'"):
 						inputEncoding = "ISO-8859-1";
 						break;
+					case ("colour=24b"):
+						termColour = "24b";
+						break;
+					case ("colour=3b"):
+						termColour = "3b";
+						break;
 					default:
 						System.out.println("invalid operation modifier, launching program anyways");
 				}
@@ -69,9 +117,12 @@ class Client {
 			System.exit(1);
 		}
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		String uname = args[0];//"defaultAccount";
-		String password = args[1];//"BennyAndTheJets3301";
-		System.out.println("Attempting connection...\nIf you see visible codes in your terminal, add \"useTerminalEscapes=false\" to program launch arguments");
+		String uname = args[0];
+		String password = args[1];
+		System.out.println("Attempting connection...");
+		if (useTerminalEscapes) {
+			System.out.println("If you see visible codes on your terminal or terminal emulator, relaunch with \"useTerminalEscapes=false\" added to program launch arguments (!!!USING THAT ARGUMENT CAUSES VISUAL BUGS!!!)");
+		}
 		Socket cnct = null;
 		try {
 			cnct = new Socket(InetAddress.getByAddress(ip), port);
@@ -116,6 +167,7 @@ class Client {
 		out.reset();
 		out.write(11);
 		out.write(resp);
+		ouD.writeShort(uname.getBytes(StandardCharsets.UTF_8).length);
 		out.write(uname.getBytes(StandardCharsets.UTF_8));
 		out.writeTo(outS);
 		out.reset();
@@ -131,10 +183,14 @@ class Client {
         			byte[] message;
         			int si;
         			String tex;
+        			int r;
+        			int g;
+        			int b;
+        			int c;
         			while (true) {
 						si = inS.read();
 						if (si == -1) {
-							System.out.println("unexpectedly disconnected from server");
+							System.out.println("disconnected");
 							System.exit(2);
 						}
 						if (si == 13) {
@@ -143,20 +199,53 @@ class Client {
 							System.out.println("disconnected by server for reason: " + new String(message, StandardCharsets.UTF_8));
 							System.exit(0);
 						}
-						if (si != 7) {
-							System.out.println("disconnected by client for invalid packet" + si);
+						if (si != 7 && si != 20) {
+							System.out.println("disconnected by client for invalid packet id: " + si);
 							System.exit(0);
 						}
-						message = new byte[inD.readShort()];
-						inS.read(message);
-						tex = new String(message, StandardCharsets.UTF_8);
-						if (useTeEsc) {
-							System.out.print("\u001b7\u001b[1S\u001b[1A\u001b[1G\u001b[1L" + tex + "\u001b[0m\u001b8\u001b[1B");
+						if (si == 20 && useTeEsc) {
+							c = (inS.read() & 0xff);
+							r = (inS.read() & 0xff);
+							g = (inS.read() & 0xff);
+							b = (inS.read() & 0xff);
+							if ((c & 2) == 2) {
+								if ((c & 1) == 0) {
+									fg = "[0m";
+								}
+								else {
+									bg = "[0m";
+								}
+							}
+							else {
+								if ((c & 1) == 0) {
+									fg = termColor(r, g, b, false);
+								}
+								else {
+									bg = termColor(r, g, b, true);
+								}
+							}
+							if (bg.equals("[0m")) {
+								theme = "\u001b" + bg + "\u001b" + fg;
+							}
+							else {
+								theme = "\u001b" + fg + "\u001b" + bg;
+							}
 						}
-						else {
-							System.out.print(tex);
+						if (si == 20 && !useTeEsc) {
+							inS.skip(4);
 						}
-						conversation.append("\"" + tex);
+						if (si == 7) {
+							message = new byte[inD.readShort()];
+							inS.read(message);
+							tex = new String(message, StandardCharsets.UTF_8);
+							if (useTeEsc) {
+								System.out.print(theme + "\u001b7\u001b[1S\u001b[1A\u001b[1G\u001b[1L" + tex + "\u001b8\u001b[1B");
+							}
+							else {
+								System.out.print(tex);
+							}
+							conversation.append("\"" + tex);
+						}
         			}
 				}
         		catch (Exception e) {
@@ -171,19 +260,21 @@ class Client {
 		while (true) {
 			input = inRead.readLine();
 			if (useTerminalEscapes) {
-				System.out.print("\u001b[1T\u001b[2K\u001b[1G");
+				System.out.print(theme + "\u001b[1T\u001b[2K\u001b[1G");
 			}
 			if (input.length() < 1) {
 				continue;
 			}
 			if (input.toLowerCase().equals("/help")) {
-				System.out.println("Use \"/exit\" to exit the program\nUse \"/showConfig\" to display the current program configuration");
+				System.out.println("Use \"/exit\" to exit the program\nUse \"/showConfig\" to display the current program configuration, use !help to show serverside commands");
 			}
 			else if (input.toLowerCase().equals("/exit")) {
 				outS.write(13);
+				if (useTerminalEscapes) {
+					System.out.print("\u001b[0m");
+				}
 				System.out.println("Exiting...");
 				conversation.flush();
-				Thread.sleep(200);
 				System.exit(0);
 			}
 			else if (input.toLowerCase().equals("/showconfig")) {
