@@ -2,6 +2,10 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -10,8 +14,90 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+class Config {
+	String ipCPort;
+	String uname;
+	byte[] pwdHash;
+	String serverName;
+	static String otherArgs;
+	static double lastUsedVer;
+	Config(String sn, String ip, String name, byte[] pw) {
+		serverName = sn;
+		ipCPort = ip;
+		uname = name;
+		pwdHash = pw;
+	}
+	static Config[] fromServ() throws Exception {
+		FileInputStream conf;
+		try {
+			conf = new FileInputStream("cN-servers");
+		}
+		catch (FileNotFoundException e) {
+			try {
+				(new File("cN-servers")).createNewFile();
+				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"));
+				fOS.write(new byte[]{(byte) ((((int) (Client.version * 100)) & 0xff000000) >> 24), (byte) ((((int) (Client.version * 100)) & 0xff0000) >> 16), (byte) ((((int) (Client.version * 100)) & 0xff00) >> 8), (byte) (((int) (Client.version * 100)) & 0xff), 0, 0, 0, 0});
+				fOS.close();
+			}
+			catch (Exception ex) {
+				throw new Exception("cN-fileCreateError");
+			}
+			return new Config[0];
+		}
+		DataInputStream conD = new DataInputStream(conf);
+		int ver = conD.readInt();
+		conD.close();
+		switch (ver) {
+			case (40):
+				return fromServ_4();
+		}
+		throw new Exception("");
+	}
+	static Config[] fromServ_4() throws Exception {//vCh
+		FileInputStream conf;
+		try {
+			conf = new FileInputStream("cN-servers");
+		}
+		catch (FileNotFoundException e) {
+			try {
+				(new File("cN-servers")).createNewFile();
+				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"));
+				fOS.write(new byte[]{0, 0, 0, 40, 0, 0, 0, 0});//vCh
+				fOS.close();
+			}
+			catch (Exception ex) {
+				throw new Exception("cN-fileCreateError");
+			}
+			return new Config[0];
+		}
+		DataInputStream conD = new DataInputStream(conf);
+		if (conD.readInt() != 40) {//vCh
+			conD.close();
+			throw new Exception();
+		}
+		int amnt = conD.readInt();
+		Config[] output = new Config[amnt];
+		byte[] uname;
+		byte[] sN;
+		byte[] ip;
+		byte[] pHash;
+		for (int n = 0; n < amnt; n++) {
+			uname = new byte[conD.readShort()];
+			conf.read(uname);
+			sN = new byte[conD.readShort()];
+			conf.read(sN);
+			ip = new byte[conD.readShort()];
+			conf.read(ip);
+			pHash = new byte[32];
+			conf.read(pHash);
+			output[n] = new Config(new String(sN, "UTF-8"), new String(ip, "UTF-8"), new String(uname, "UTF-8"), pHash);
+		}
+		conD.close();
+		return output;
+	}
+}
 class Client {
-	public static final double version = 0.3;//Version
+	public static final double version = 0.4;//Version
 	public static log conversation = new log("cN-chatLogged.txt", (short) 30, "conver", 65536, false, StandardCharsets.UTF_8);
 	static String fg = "[0m";
 	static String bg = "[0m";
@@ -29,7 +115,7 @@ class Client {
 		if (termColour.equals("24b")) {
 			return "["+ (38 + a) + ";2;" + r + ";" + g + ";" + b + "m";
 		}
-		if (termColour.equals("noColor")) {
+		if (termColour.equals("noColour")) {
 			return "[0m";
 		}
 		return "[0m";
@@ -101,11 +187,14 @@ class Client {
 					case ("inputencoding='iso-8859-1'"):
 						inputEncoding = "ISO-8859-1";
 						break;
-					case ("colour=24b"):
+					case ("colour='24b'"):
 						termColour = "24b";
 						break;
-					case ("colour=3b"):
+					case ("colour='3b'"):
 						termColour = "3b";
+						break;
+					case ("colour='nocolour'"):
+						termColour = "noColour";
 						break;
 					default:
 						System.out.println("invalid operation modifier, launching program anyways");
