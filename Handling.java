@@ -24,7 +24,7 @@ class Handling implements Runnable {
 	static List<String> namel = Arrays.asList(unames);
 	static ArrayList<String> names = new ArrayList<String>(namel);
 	static SecureRandom sRand = new SecureRandom();
-	public static final double version = 0.3;//version
+	public static final double version = 0.4;//version
 	public static int port = 15227;
 	public static volatile byte[] colB = new byte[]{20, 2, -127, -127, -127};
 	public static volatile byte[] colF = new byte[]{20, 3, -127, -127, -127};

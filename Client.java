@@ -4,7 +4,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,21 +20,133 @@ class Config {
 	String serverName;
 	static String otherArgs;
 	static double lastUsedVer;
+	static boolean useTerminalEscapes = true;
+	static String termColour = "24b";
+	static String inputEncoding = Charset.defaultCharset().name();
 	Config(String sn, String ip, String name, byte[] pw) {
 		serverName = sn;
 		ipCPort = ip;
 		uname = name;
 		pwdHash = pw;
 	}
+	static void launcher(String[] args) throws Exception {
+		toServ(new Config[]{new Config("testing server", "127.0.0.1:15227", "guest", new byte[32])});//Temporary placeholder for demonstration and functionality purposes
+		String[] carg = new String[args.length + 3];
+		String ts;
+		for (int n = 0; n < args.length; n++) {
+			carg[n + 3] = args[n];
+			ts = args[n].toLowerCase();
+			switch (ts) {
+				case ("useterminalescapes=true"):
+					useTerminalEscapes = true;
+					break;
+				case ("useterminalescapes=false"):
+					useTerminalEscapes = false;
+					break;
+				case ("inputencoding='utf-8'"):
+					inputEncoding = "UTF-8";
+					break;
+				case ("inputencoding='utf-16le'"):
+					inputEncoding = "UTF-16LE";
+					break;
+				case ("inputencoding='utf-16be'"):
+					inputEncoding = "UTF-16BE";
+					break;
+				case ("inputencoding='utf-16'"):
+					inputEncoding = "UTF-16";
+					break;
+				case ("inputencoding='us-ascii'"):
+					inputEncoding = "US-ASCII";
+					break;
+				case ("inputencoding='iso-8859-1'"):
+					inputEncoding = "ISO-8859-1";
+					break;
+				case ("colour='24b'"):
+					termColour = "24b";
+					break;
+				case ("colour='3b'"):
+					termColour = "3b";
+					break;
+				case ("colour='nocolour'"):
+					termColour = "noColour";
+					break;
+				default:
+					System.out.println("invalid operation modifier, launching program anyways");
+			}
+		}
+		Config[] confs = null;
+		try {
+			confs = fromServ();
+		}
+		catch (Exception e) {
+			System.out.println("Exception loading config file: " + e);
+			System.exit(4);
+		}
+		int ti = 0;
+		for (Config c : confs) {
+			System.out.println(ti + " \u0009"+ c.serverName + " \u0009" + c.ipCPort + " \u0009" + c.uname);
+			ti++;
+		}
+		BufferedReader inp = new BufferedReader(new InputStreamReader(System.in, inputEncoding));
+		ti = -1;
+		while (ti < 0 || ti >= confs.length) {
+			System.out.print("Selection: ");
+			ts = inp.readLine();
+			try {
+				ti = Integer.valueOf(ts);
+			}
+			catch (Exception e) {
+				ti = -1;
+			}
+			if (ti < 1 || ti >= confs.length) {
+				if (useTerminalEscapes) {
+					System.out.print("\u001b[1T\u001b[G\u001b[0J");
+				}
+			}
+		}
+		carg[0] = confs[ti].uname;
+		carg[1] = "paswo";
+		carg[2] = confs[ti].ipCPort;
+		Client.launchpoint(carg);
+	}
+	static void toServ(Config[] configs) throws Exception {
+		FileOutputStream fOS;
+		try {
+			fOS = new FileOutputStream(new File("cN-servers"), false);
+		}
+		catch (Exception e) {
+			try {
+				(new File("cN-servers")).createNewFile();
+				fOS = new FileOutputStream(new File("cN-servers"), false);
+			}
+			catch (Exception ex) {
+				throw new Exception("cN-fileCreateError");
+			}
+		}
+		DataOutputStream fOD = new DataOutputStream(fOS);
+		fOD.writeInt((int) (Client.version * 100));
+		fOD.writeInt(configs.length);
+		for (Config confi : configs) {
+			fOD.writeShort(confi.uname.getBytes("UTF-8").length);
+			fOD.write(confi.uname.getBytes("UTF-8"));
+			fOD.writeShort(confi.serverName.getBytes("UTF-8").length);
+			fOD.write(confi.serverName.getBytes("UTF-8"));
+			fOD.writeShort(confi.ipCPort.getBytes("UTF-8").length);
+			fOD.write(confi.ipCPort.getBytes("UTF-8"));
+			fOD.flush();
+			fOS.write(confi.pwdHash);
+		}
+		fOD.close();
+	}
 	static Config[] fromServ() throws Exception {
 		FileInputStream conf;
 		try {
 			conf = new FileInputStream("cN-servers");
 		}
-		catch (FileNotFoundException e) {
+		catch (Exception e) {
 			try {
 				(new File("cN-servers")).createNewFile();
-				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"));
+				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"), false);
 				fOS.write(new byte[]{(byte) ((((int) (Client.version * 100)) & 0xff000000) >> 24), (byte) ((((int) (Client.version * 100)) & 0xff0000) >> 16), (byte) ((((int) (Client.version * 100)) & 0xff00) >> 8), (byte) (((int) (Client.version * 100)) & 0xff), 0, 0, 0, 0});
 				fOS.close();
 			}
@@ -58,10 +169,10 @@ class Config {
 		try {
 			conf = new FileInputStream("cN-servers");
 		}
-		catch (FileNotFoundException e) {
+		catch (Exception e) {
 			try {
 				(new File("cN-servers")).createNewFile();
-				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"));
+				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"), false);
 				fOS.write(new byte[]{0, 0, 0, 40, 0, 0, 0, 0});//vCh
 				fOS.close();
 			}
@@ -120,7 +231,10 @@ class Client {
 		}
 		return "[0m";
 	}
-	public static void main(String[] arg) {
+	public static void main(String[] args) throws Exception {
+		Config.launcher(args);
+	}
+	static void launchpoint(String[] arg) {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 	        public void run() {
 	        	if (useTerminalEscapes) {
