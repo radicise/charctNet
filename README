@@ -12,5 +12,6 @@ Client-side commands:
 Serverside commands:
 !help
 !connected
+!theme fg|bg <r> <g> <b>
 Server runs on port 15227
 Insecure
