@@ -19,7 +19,7 @@ class Handling implements Runnable {
 	static volatile List<Socket> socks = new ArrayList<Socket>();
 	public static volatile String motd = "Development server, you may experience bugs";
 	//For future-proofing, please add no user names over 64 bytes when encoded in UTF-8
-	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0x8cd1d8ce, 0xbdbe6b8c, 0xf858694c, 0xd7ecd800, 0x7e7a956a, 0xb4b82a54, 0xcde27bf9, 0x6c06e2eb};
+	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0xfc4998b6, 0x0490cf0c, 0x054be62f, 0xf4ff1b44, 0xfd2d1568, 0xd31f6ed4, 0xf77b21f0, 0x802414ed};
 	static String[] unames = {"guest", "defaultAccount"};
 	static List<String> namel = Arrays.asList(unames);
 	static ArrayList<String> names = new ArrayList<String>(namel);
@@ -160,7 +160,7 @@ class Handling implements Runnable {
 		MessageDigest dig = MessageDigest.getInstance("SHA-256");
 		byte[] salt = dig.digest(out.toByteArray());
 		out.reset();
-		while (inS.available() < 1) {//Bad use of .available()?
+		while (inS.available() < 1) {//TODO bad use of .available()?
 			Thread.sleep(200);
 		}
 		si = inS.read();
@@ -207,7 +207,7 @@ class Handling implements Runnable {
 			}
 			resp[n] = (byte) ti;
 		}
-		if (inS.available() < 1) {//Bad use of .available()?
+		if (inS.available() < 1) {//TODO bad use of .available()?
 			return;
 		}
 		byte[] nBs = new byte[inD.readShort()];

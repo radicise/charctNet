@@ -13,6 +13,7 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Arrays;
 class Config {
 	String ipCPort;
 	String uname;
@@ -30,7 +31,6 @@ class Config {
 		pwdHash = pw;
 	}
 	static void launcher(String[] args) throws Exception {
-		toServ(new Config[]{new Config("testing server", "127.0.0.1:15227", "guest", new byte[32])});//Temporary placeholder for demonstration and functionality purposes
 		String[] carg = new String[args.length + 3];
 		String ts;
 		for (int n = 0; n < args.length; n++) {
@@ -74,6 +74,9 @@ class Config {
 					System.out.println("invalid operation modifier, launching program anyways");
 			}
 		}
+		if (useTerminalEscapes) {
+			System.out.println("If you see visible codes on your terminal or terminal emulator, relaunch with \"useTerminalEscapes=false\" added to program launch arguments (!!!USING THAT ARGUMENT CAUSES VISUAL BUGS, IT IS RECOMMENDED THAT IT ONLY BE USED WHEN NEEDED!!!)");
+		}
 		Config[] confs = null;
 		try {
 			confs = fromServ();
@@ -107,7 +110,7 @@ class Config {
 		carg[0] = confs[ti].uname;
 		carg[1] = "paswo";
 		carg[2] = confs[ti].ipCPort;
-		Client.launchpoint(carg);
+		Client.launchpoint(carg, confs[ti].pwdHash);
 	}
 	static void toServ(Config[] configs) throws Exception {
 		FileOutputStream fOS;
@@ -115,13 +118,8 @@ class Config {
 			fOS = new FileOutputStream(new File("cN-servers"), false);
 		}
 		catch (Exception e) {
-			try {
-				(new File("cN-servers")).createNewFile();
-				fOS = new FileOutputStream(new File("cN-servers"), false);
-			}
-			catch (Exception ex) {
-				throw new Exception("cN-fileCreateError");
-			}
+			(new File("cN-servers")).createNewFile();
+			fOS = new FileOutputStream(new File("cN-servers"), false);
 		}
 		DataOutputStream fOD = new DataOutputStream(fOS);
 		fOD.writeInt((int) (Client.version * 100));
@@ -144,15 +142,10 @@ class Config {
 			conf = new FileInputStream("cN-servers");
 		}
 		catch (Exception e) {
-			try {
-				(new File("cN-servers")).createNewFile();
-				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"), false);
-				fOS.write(new byte[]{(byte) ((((int) (Client.version * 100)) & 0xff000000) >> 24), (byte) ((((int) (Client.version * 100)) & 0xff0000) >> 16), (byte) ((((int) (Client.version * 100)) & 0xff00) >> 8), (byte) (((int) (Client.version * 100)) & 0xff), 0, 0, 0, 0});
-				fOS.close();
-			}
-			catch (Exception ex) {
-				throw new Exception("cN-fileCreateError");
-			}
+			(new File("cN-servers")).createNewFile();
+			FileOutputStream fOS = new FileOutputStream(new File("cN-servers"), false);
+			fOS.write(new byte[]{(byte) ((((int) (Client.version * 100)) & 0xff000000) >> 24), (byte) ((((int) (Client.version * 100)) & 0xff0000) >> 16), (byte) ((((int) (Client.version * 100)) & 0xff00) >> 8), (byte) (((int) (Client.version * 100)) & 0xff), 0, 0, 0, 0});
+			fOS.close();
 			return new Config[0];
 		}
 		DataInputStream conD = new DataInputStream(conf);
@@ -170,15 +163,10 @@ class Config {
 			conf = new FileInputStream("cN-servers");
 		}
 		catch (Exception e) {
-			try {
-				(new File("cN-servers")).createNewFile();
-				FileOutputStream fOS = new FileOutputStream(new File("cN-servers"), false);
-				fOS.write(new byte[]{0, 0, 0, 40, 0, 0, 0, 0});//vCh
-				fOS.close();
-			}
-			catch (Exception ex) {
-				throw new Exception("cN-fileCreateError");
-			}
+			(new File("cN-servers")).createNewFile();
+			FileOutputStream fOS = new FileOutputStream(new File("cN-servers"), false);
+			fOS.write(new byte[]{0, 0, 0, 40, 0, 0, 0, 0});//vCh
+			fOS.close();
 			return new Config[0];
 		}
 		DataInputStream conD = new DataInputStream(conf);
@@ -232,9 +220,62 @@ class Client {
 		return "[0m";
 	}
 	public static void main(String[] args) throws Exception {
-		Config.launcher(args);
+		if (args.length > 0 && args[0].toLowerCase().equals("addconfig")) {
+			Config[] confs = Config.fromServ();
+			Config[] nC = Arrays.copyOf(confs, confs.length + 1);
+			ByteArrayOutputStream tbArOS = new ByteArrayOutputStream();
+			tbArOS.write((args[3] + "$" + args[4]).getBytes("UTF-8"));
+			byte[] pwH = MessageDigest.getInstance("SHA-256").digest(tbArOS.toByteArray());
+			nC[confs.length] = new Config(args[1], args[2], args[3], pwH);
+			Config.toServ(nC);
+			System.out.println("Added new server successfully!");
+		}
+		else if (args.length > 0 && args[0].toLowerCase().equals("launchoptions")) {
+			FileOutputStream fOS;
+			try {
+				fOS = new FileOutputStream(new File("cN-modifiers"), false);
+			}
+			catch (Exception e) {
+				(new File("cN-servers")).createNewFile();
+				fOS = new FileOutputStream(new File("cN-modifiers"), false);
+			}
+			DataOutputStream fOD = new DataOutputStream(fOS);
+			fOD.writeShort(args.length - 1);
+			for (int c = 1; c < args.length; c++) {
+				fOD.writeShort(args[c].getBytes("UTF-8").length);
+				fOD.write(args[c].getBytes("UTF-8"));
+			}
+			fOD.flush();
+			fOD.close();
+			System.out.println("Updated launch options successfully!");
+		}
+		else if (args.length > 0 && args[0].toLowerCase().equals("launch")) {
+			FileInputStream conf = null;
+			try {
+				conf = new FileInputStream("cN-modifiers");
+			}
+			catch (Exception e) {
+				System.out.println("No launch option file present. To create a launch option file, run with this argument syntax: \"launchOptions\" [<options>]");
+				System.exit(5);
+			}
+			DataInputStream conD = new DataInputStream(conf);
+			String[] options = new String[conD.readShort()];
+			byte[] oB;
+			for (int n = 0; n < options.length; n++) {
+				oB = new byte[conD.readShort()];
+				conf.read(oB);
+				options[n] = new String(oB, "UTF-8");
+			}
+			Config.launcher(options);
+		}
+		else if (args.length > 0 && args[0].toLowerCase().equals("help")) {
+			System.out.println("Syntax:\n\"launch\"\n\"addConfig\" <serverName> <serverIP> <username> <password>\n\"launchOptions\" [<options>]\n\"help\"");
+		}
+		else {
+			System.out.println("Invalid arguments! Valid syntax is:\n\"launch\"\n\"addConfig\" <serverName> <serverIP> <username> <password>\n\"launchOptions\" [<options>]\n\"help\"");
+		}
 	}
-	static void launchpoint(String[] arg) {
+	static void launchpoint(String[] arg, byte[] pwH) {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 	        public void run() {
 	        	if (useTerminalEscapes) {
@@ -243,7 +284,7 @@ class Client {
 	        }
 	    });
 		try {
-			mai(arg);
+			mai(arg, pwH);
 		}
 		catch (Exception e) {
 			if (useTerminalEscapes) {
@@ -254,7 +295,7 @@ class Client {
 		}
 		System.exit(0);
 	}
-	public static void mai(String[] args) throws Exception {
+	public static void mai(String[] args, byte[] pwH) throws Exception {
 		System.out.println("Starting program...");
 		String inputEncoding = Charset.defaultCharset().name();
 		useTerminalEscapes = true;
@@ -321,11 +362,7 @@ class Client {
 		}
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		String uname = args[0];
-		String password = args[1];
 		System.out.println("Attempting connection...");
-		if (useTerminalEscapes) {
-			System.out.println("If you see visible codes on your terminal or terminal emulator, relaunch with \"useTerminalEscapes=false\" added to program launch arguments (!!!USING THAT ARGUMENT CAUSES VISUAL BUGS!!!)");
-		}
 		Socket cnct = null;
 		try {
 			cnct = new Socket(InetAddress.getByAddress(ip), port);
@@ -360,7 +397,7 @@ class Client {
 			System.exit(0);
 		}
 		MessageDigest dig = MessageDigest.getInstance("SHA-256");
-		out.write(dig.digest(password.getBytes(StandardCharsets.UTF_8)));
+		out.write(pwH);
 		for (byte n = 0; n < 8; n++) {
 			ouD.writeInt(inD.readInt());
 		}
@@ -481,7 +518,7 @@ class Client {
 				System.exit(0);
 			}
 			else if (input.toLowerCase().equals("/showconfig")) {
-				System.out.println("useTerminalEscapes=" + useTerminalEscapes + "\ninputEncoding=" + inputEncoding);
+				System.out.println("useTerminalEscapes=" + useTerminalEscapes + "\ninputEncoding='" + inputEncoding + "'\ncolour='" + termColour + "'");
 			}
 			else if (input.length() > 8000) {
 				System.out.println("client: you may not send messages in excess of 8000 characters!");
