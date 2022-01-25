@@ -2,7 +2,7 @@
 
 * Server runs on port 15227
 
-* Insecure
+* The chat is not secure, though login is
 
 ## Client launch arguments
 
