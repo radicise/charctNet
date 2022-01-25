@@ -8,7 +8,7 @@
 
 * To launch the client program, simply use `launch` as the program argument
 
-* Before using the client for the first time or when needing to change additional launch options, a launch option file must be created. To do this, use `launchOptions` followed by launch options needed, if any. Available launch options are:
+* Before using the client for the first time or when needing to change launch options, a launch option file must be created. To do this, use `launchOptions` followed by launch options needed, if any. Available launch options are:
     * `useTerminalEscapes=`
         * `true`
         * `false`
