@@ -1,51 +1,53 @@
-# important info for usage
+# Important info for usage
 
 * Server runs on port 15227
 
 * Insecure
 
-## launch arguments
+## Client launch arguments
 
-* These arguments should be provided at launch for the client:
-`<username> <password> <remoteIPv4Address>:<remotePort>`
+* To launch the client program, simply use `launch` as the program argument
 
-    - The optional launch arguments follow after these
-
-* If certain escape codes are unsupported on your terminal, add 
-`useterminalescapes=false` to the program launch arguments **(note: prevents some features and can cause bugs)**
-
-* Launch options are space-delimited and chosen at the user's discretion. They include: 
-    * `useterminalescapes`
+* Before using the client for the first time or when needing to change additional launch options, a launch option file must be created. To do this, use `launchOptions` followed by launch options you need, if any. They include: 
+    * `useTerminalEscapes=`
         * `true`
         * `false`
-    * `input-encoding`
+    * `inputEncoding=`
         * `'utf-8'`
         * `'utf-16le'`
         * `'utf-16be'`
         * `'utf-16'`
-        * `us-ascii',`
+        * `'us-ascii',`
         * `'iso-8859-1'`
-    * `colour`
+    * `colour=`
         * `'24b'`
         * `'3b'`
-        * `'nocolour'`
+        * `'noColour'`
 
-* Encoding of output to the terminal can be changed with Java arguments
+* If certain escape codes are unsupported on your terminal, set `useTerminalEscapes` to `false` or lower the color setting **(note: prevents some features and can cause bugs)**
 
-## default and guest accounts
+* To add servers, run the client program with the arguments `addConfig <serverName> <remoteIPv4>:<remotePort> <username> <password>`. `serverName` can be any name you give to the server. Passwords are stored on disk as hashes salted with the username.
 
-* Password for `defaultAccount` is `BennyAndTheJets3301`
+* Encoding of text output can be changed with Java arguments
 
-* Logging in with username `guest` does not require password authentication
+## Server setup
 
-## client- and server-side commands
+* To add an account for someone to connect to your server, launch the server programs with the arguments `addUser <username> <password>`. Passwords are stored on disk as hashes salted with the username.
+
+## Guest accounts
+
+* Logging in with the username `guest` or any username starting in `guest-` does not require authentication **disabling guest logins is not an available feature at this time**
+
+## Client- and server-side commands
+
+* Currently, all commands are issued by connected clients
 
 * Client-side commands:
     * `/help`
     * `/exit`
     * `/showConfig`
 
-* Serverside commands:
+* Server-side commands:
     * `!help`
     * `!connected`
     * `!theme fg|bg <r> <g> <b>`
