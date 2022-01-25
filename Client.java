@@ -108,7 +108,7 @@ class Config {
 			}
 		}
 		carg[0] = confs[ti].uname;
-		carg[1] = "paswo";
+		carg[1] = "unused String";
 		carg[2] = confs[ti].ipCPort;
 		Client.launchpoint(carg, confs[ti].pwdHash);
 	}
@@ -155,7 +155,7 @@ class Config {
 			case (40):
 				return fromServ_4();
 		}
-		throw new Exception("");
+		throw new Exception("Unsupported 'cN-servers' config file version");
 	}
 	static Config[] fromServ_4() throws Exception {//vCh
 		FileInputStream conf;
@@ -220,15 +220,16 @@ class Client {
 		return "[0m";
 	}
 	public static void main(String[] args) throws Exception {
+		System.out.println("Starting program...");
 		if (args.length > 0 && args[0].toLowerCase().equals("addconfig")) {
 			Config[] confs = Config.fromServ();
 			Config[] nC = Arrays.copyOf(confs, confs.length + 1);
 			ByteArrayOutputStream tbArOS = new ByteArrayOutputStream();
-			tbArOS.write((args[3] + "$" + args[4]).getBytes("UTF-8"));
+			tbArOS.write((args[3] + "/" + args[4]).getBytes("UTF-8"));
 			byte[] pwH = MessageDigest.getInstance("SHA-256").digest(tbArOS.toByteArray());
 			nC[confs.length] = new Config(args[1], args[2], args[3], pwH);
 			Config.toServ(nC);
-			System.out.println("Added new server successfully!");
+			System.out.println("Added new connection successfully!");
 		}
 		else if (args.length > 0 && args[0].toLowerCase().equals("launchoptions")) {
 			FileOutputStream fOS;
@@ -284,6 +285,7 @@ class Client {
 	        }
 	    });
 		try {
+			System.out.println("Launching client...");
 			mai(arg, pwH);
 		}
 		catch (Exception e) {
@@ -296,7 +298,6 @@ class Client {
 		System.exit(0);
 	}
 	public static void mai(String[] args, byte[] pwH) throws Exception {
-		System.out.println("Starting program...");
 		String inputEncoding = Charset.defaultCharset().name();
 		useTerminalEscapes = true;
 		int ti = 0;

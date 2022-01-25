@@ -1,6 +1,9 @@
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
@@ -12,6 +15,61 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+class UserData{
+	byte[] login;
+	String username;
+	//TODO String nick;
+	UserData(String username, byte[] login) {
+		this.username = username;
+		this.login = login;
+	}
+	static UserData[] getUsers() throws Exception {
+		FileInputStream conf = null;
+		try {
+			conf = new FileInputStream("cN-serverUsers");
+		}
+		catch (Exception e) {
+			(new File("cN-serverUsers")).createNewFile();
+			FileOutputStream fOS = new FileOutputStream(new File("cN-serverUsers"), false);
+			fOS.write(new byte[]{0, 0});
+			fOS.close();
+			return new UserData[0];
+		}
+		DataInputStream conD = new DataInputStream(conf);
+		UserData[] output = new UserData[conD.readShort()];
+		String ts;
+		byte[] tBA;
+		for (int n = 0; n < output.length; n++) {
+			tBA = new byte[conD.readShort()];
+			conf.read(tBA);
+			ts = new String(tBA, "UTF-8");
+			byte[] sBA = new byte[32];
+			conf.read(sBA);
+			output[n] = new UserData(ts, sBA);
+		}
+		conD.close();
+		
+		return output;
+	}
+	static void writeUsers(UserData[] users) throws Exception {
+		FileOutputStream fOS = null;
+		try {
+			fOS = new FileOutputStream(new File("cN-serverUsers"), false);
+		}
+		catch (Exception e) {
+			(new File("cN-serverUsers")).createNewFile();
+			fOS = new FileOutputStream(new File("cN-serverUsers"), false);
+		}
+		DataOutputStream fOD = new DataOutputStream(fOS);
+		fOD.writeShort(users.length);
+		for (UserData u : users) {
+			fOD.writeShort(u.username.getBytes("UTF-8").length);
+			fOD.write(u.username.getBytes("UTF-8"));
+			fOD.write(Arrays.copyOf(u.login, 32));
+		}
+		fOD.close();
+	}
+}
 class Handling implements Runnable {
 	public static log chatlg = new log("cN-chatLog.txt", (short) 30, "chat", 65536, true, StandardCharsets.UTF_8);
 	public static log servlg = new log("cN-serverLog.txt", (short) 30, "server", 65536, true, StandardCharsets.UTF_8);
@@ -19,10 +77,8 @@ class Handling implements Runnable {
 	static volatile List<Socket> socks = new ArrayList<Socket>();
 	public static volatile String motd = "Development server, you may experience bugs";
 	//For future-proofing, please add no user names over 64 bytes when encoded in UTF-8
-	static int[] pws = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0xfc4998b6, 0x0490cf0c, 0x054be62f, 0xf4ff1b44, 0xfd2d1568, 0xd31f6ed4, 0xf77b21f0, 0x802414ed};
-	static String[] unames = {"guest", "defaultAccount"};
-	static List<String> namel = Arrays.asList(unames);
-	static ArrayList<String> names = new ArrayList<String>(namel);
+	static byte[] psk;
+	static String[] unames = null;
 	static SecureRandom sRand = new SecureRandom();
 	public static final double version = 0.4;//version
 	public static int port = 15227;
@@ -33,15 +89,29 @@ class Handling implements Runnable {
 	Handling(Socket sock) {
 		socket = sock;
 	}
-	public static void main(String[] arg) {
-		System.out.println("Server is starting...");
-		try {
-			servlg.startExecutor();
-		}
-		catch (Exception e) {
-			System.out.println("Exception starting server log: " + e);
+	public static void main(String[] arg) throws Exception {
+		if (arg.length > 0 && arg[0].toLowerCase().equals("adduser")) {
+			UserData[] uDat = UserData.getUsers();
+			uDat = Arrays.copyOf(uDat, (uDat.length + 1));
+			MessageDigest dig = MessageDigest.getInstance("SHA-256");
+			byte[] secBA = dig.digest((arg[1] + "/" + arg[2]).getBytes("UTF-8"));
+			uDat[uDat.length - 1] = new UserData(arg[1], secBA);
+			UserData.writeUsers(uDat);
+			System.out.println("Added user successfully! Server restart is required to admit user added");
 			System.exit(0);
 		}
+		System.out.println("Server is starting...");
+		UserData[] uDat = UserData.getUsers();
+		psk = new byte[uDat.length * 32];
+		unames = new String[uDat.length];
+		for (int n = 0; n < uDat.length; n++) {
+			unames[n] = uDat[n].username;
+			uDat[n].login = Arrays.copyOf(uDat[n].login, 32);
+			for (int i = 0; i < 32; i++) {
+				psk[(n * 32) + i] = uDat[n].login[i];
+			}
+		}
+		servlg.startExecutor();
 		try {
 			ServerSocket servsock = new ServerSocket(port);
 			accept(servsock);
@@ -157,7 +227,7 @@ class Handling implements Runnable {
 		ouD.writeInt(sRand.nextInt());
 		ouD.writeInt(sRand.nextInt());
 		ouD.flush();
-		MessageDigest dig = MessageDigest.getInstance("SHA-256");
+		MessageDigest dig = MessageDigest.getInstance("SHA-256");//Just in case someone hijacks SecureRandom and doesn't bother to wait for the next leap second
 		byte[] salt = dig.digest(out.toByteArray());
 		out.reset();
 		while (inS.available() < 1) {//TODO bad use of .available()?
@@ -213,22 +283,21 @@ class Handling implements Runnable {
 		byte[] nBs = new byte[inD.readShort()];
 		inS.read(nBs);
 		String name = new String(nBs, StandardCharsets.UTF_8);
-		if (!names.contains(name)) {
+		if (!Arrays.asList(unames).contains(name) && !name.equals("guest") && !(name.length() > 5 && name.substring(0, 6).equals("guest-"))) {
 			out.write(13);
 			out.write("username does not exist on this server".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
 			return;
 		}
-		int ind = names.indexOf(name);
-		for (byte n = 0; n < 8; n++) {
-			ouD.writeInt(pws[(8 * ind) + n]);
+		int ind = Arrays.asList(unames).indexOf(name);
+		if (!name.equals("guest") && !((name.length() > 5 && name.substring(0, 6).equals("guest-")))) {
+			out.write(psk, (ind * 32), 32);
 		}
-		ouD.flush();
 		out.write(salt);
 		out.write(nBs);
 		byte[] exp = dig.digest(out.toByteArray());
 		out.reset();
-		if (!name.equals("guest")) {
+		if (!name.equals("guest") && !((name.length() > 5 && name.substring(0, 6).equals("guest-")))) {
 			for (byte n = 0; n < 32; n++) {
 				if (exp[n] != resp[n]) {
 					out.write(13);
