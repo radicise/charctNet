@@ -24,7 +24,7 @@
         * `'3b'`
         * `'noColour'`
 
-* If certain escape codes are unsupported on your terminal, set `useTerminalEscapes` to `false` or lower the color setting **(note: prevents some features and can cause bugs)**
+* If certain escape codes are unsupported on your terminal, set `useTerminalEscapes` to `false` or lower the colour setting **(note: prevents some features and can cause bugs)**
 
 * To add servers, run the client program with the arguments `addConfig <serverName> <remoteIPv4>:<remotePort> <username> <password>`. `serverName` can be any name you give to the server. Passwords are stored on disk as hashes salted with the username.
 
