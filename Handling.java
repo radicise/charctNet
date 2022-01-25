@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 class UserData{
 	byte[] login;
@@ -92,12 +93,48 @@ class Handling implements Runnable {
 	public static void main(String[] arg) throws Exception {
 		if (arg.length > 0 && arg[0].toLowerCase().equals("adduser")) {
 			UserData[] uDat = UserData.getUsers();
+			for (UserData c : uDat) {
+				if (c.username.equals(arg[1])) {
+					System.out.println("An account with that username already exists on this server!");
+					System.exit(1);
+				}
+			}
 			uDat = Arrays.copyOf(uDat, (uDat.length + 1));
 			MessageDigest dig = MessageDigest.getInstance("SHA-256");
 			byte[] secBA = dig.digest((arg[1] + "/" + arg[2]).getBytes("UTF-8"));
 			uDat[uDat.length - 1] = new UserData(arg[1], secBA);
 			UserData.writeUsers(uDat);
 			System.out.println("Added user successfully! Server restart is required to admit user added");
+			System.exit(0);
+		}
+		if (arg.length > 0 && arg[0].toLowerCase().equals("removeaccount")) {
+			UserData[] uDat = UserData.getUsers();
+			int i = -1;
+			for (int j = 0; j < uDat.length; j++) {
+				if (uDat[j].username.equals(arg[1])) {
+					i = j;
+					break;
+				}
+			}
+			if (i == -1) {
+				System.out.println("There was no account with that username on this server!");
+				System.exit(2);
+			}
+			LinkedList<UserData> UDs = new LinkedList(Arrays.asList(uDat));
+			UDs.remove(i);
+			UserData.writeUsers(UDs.toArray(new UserData[0]));
+			System.out.println("Successfully removed the specified user account!");
+			System.exit(0);
+		}
+		if (arg.length > 0 && arg[0].toLowerCase().equals("showaccounts")) {
+			UserData[] uDat = UserData.getUsers();
+			System.out.println("Number of accounts: " + uDat.length);
+			System.out.println("Account listing:");
+			int i = 0;
+			for (UserData c : uDat) {
+				System.out.println(i + " \u0009username: " + c.username);
+				i++;
+			}
 			System.exit(0);
 		}
 		System.out.println("Server is starting...");

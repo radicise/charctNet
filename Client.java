@@ -14,13 +14,13 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.LinkedList;
 class Config {
 	String ipCPort;
 	String uname;
 	byte[] pwdHash;
 	String serverName;
 	static String otherArgs;
-	static double lastUsedVer;
 	static boolean useTerminalEscapes = true;
 	static String termColour = "24b";
 	static String inputEncoding = Charset.defaultCharset().name();
@@ -75,7 +75,7 @@ class Config {
 			}
 		}
 		if (useTerminalEscapes) {
-			System.out.println("If you see visible codes on your terminal or terminal emulator, relaunch with \"useTerminalEscapes=false\" added to program launch arguments (!!!USING THAT ARGUMENT CAUSES VISUAL BUGS, IT IS RECOMMENDED THAT IT ONLY BE USED WHEN NEEDED!!!)");
+			System.out.println("If you see visible codes on your terminal or terminal emulator, relaunch with \"useTerminalEscapes=false\" added to program launch arguments (!!!USING THAT ARGUMENT CAUSES VISUAL BUGS, IT IS RECOMMENDED THAT IT ONLY BE USED WHEN NEEDED!!!)");//TODO Edit message
 		}
 		Config[] confs = null;
 		try {
@@ -86,6 +86,7 @@ class Config {
 			System.exit(4);
 		}
 		int ti = 0;
+		System.out.println("Configuration listing:");
 		for (Config c : confs) {
 			System.out.println(ti + " \u0009"+ c.serverName + " \u0009" + c.ipCPort + " \u0009" + c.uname);
 			ti++;
@@ -220,8 +221,44 @@ class Client {
 		return "[0m";
 	}
 	public static void main(String[] args) throws Exception {
-		System.out.println("Starting program...");
+		if (args.length > 0 && args[0].toLowerCase().equals("removeconfig")) {
+			Config[] uDat = Config.fromServ();
+			int i = -1;
+			for (int j = 0; j < uDat.length; j++) {
+				if (uDat[j].serverName.equals(args[1])) {
+					i = j;
+					break;
+				}
+			}
+			if (i == -1) {
+				System.out.println("There was no config with the specified name!");
+				System.exit(2);
+			}
+			LinkedList<Config> UDs = new LinkedList(Arrays.asList(uDat)); 
+			UDs.remove(i);
+			Config.toServ(UDs.toArray(new Config[0]));
+			System.out.println("Successfully removed the specified configuration!");
+			System.exit(0);
+		}
+		if (args.length > 0 && args[0].toLowerCase().equals("showconfigs")) {
+			Config[] uDat = Config.fromServ();
+			System.out.println("Number of configurations: " + uDat.length);
+			System.out.println("Configuration listing:");
+			int i = 0;
+			for (Config c : uDat) {
+				System.out.println(i + "   \u0009configName: " + c.serverName + "   username: " + c.uname + "   IPv4+Port: " + c.ipCPort);
+				i++;
+			}
+			System.exit(0);
+		}
 		if (args.length > 0 && args[0].toLowerCase().equals("addconfig")) {
+			Config[] uDat = Config.fromServ();
+			for (Config c : uDat) {
+				if (c.serverName.equals(args[1])) {
+					System.out.println("A configuration with that servername already exists!");
+					System.exit(1);
+				}
+			}
 			Config[] confs = Config.fromServ();
 			Config[] nC = Arrays.copyOf(confs, confs.length + 1);
 			ByteArrayOutputStream tbArOS = new ByteArrayOutputStream();
@@ -270,10 +307,10 @@ class Client {
 			Config.launcher(options);
 		}
 		else if (args.length > 0 && args[0].toLowerCase().equals("help")) {
-			System.out.println("Syntax:\n\"launch\"\n\"addConfig\" <serverName> <serverIP> <username> <password>\n\"launchOptions\" [<options>]\n\"help\"");
+			System.out.println("Syntax:\n\"launch\"\n\"addConfig\" <configName> <serverIP> <username> <password>\n\"removeConfig\" <configName>\n\"showConfigs\"\n\"launchOptions\" [<options>]\n\"help\"");
 		}
 		else {
-			System.out.println("Invalid arguments! Valid syntax is:\n\"launch\"\n\"addConfig\" <serverName> <serverIP> <username> <password>\n\"launchOptions\" [<options>]\n\"help\"");
+			System.out.println("Invalid arguments! Valid syntax is:\n\"launch\"\n\"addConfig\" <configName> <serverIP> <username> <password>\n\"removeConfig\" <configName>\n\"showConfigs\"\n\"launchOptions\" [<options>]\n\"help\"");
 		}
 	}
 	static void launchpoint(String[] arg, byte[] pwH) {
