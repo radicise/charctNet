@@ -5,7 +5,7 @@ const conn = new WebSocket(queries.get("bridge"))
 const version = 0.4
 const uname = "guest-testingUser"
 const password = "paswo"
-verHex = "vers3fd999999999999a"
+const verHex = "vers3fd999999999999a"
 display("Connecting...")
 function display(text) {
     tex.innerHTML += (text + "<br>")//Don't do this in final revisions, also prevent HTML spoofing and "dangerous" characters

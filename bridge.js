@@ -8,39 +8,45 @@ var serv = new ws.Server({"port":15226});
 serv.on("connection", wsock => {
     var tsock = new net.Socket().connect(serverPort, serverIp);
     tsock.on("data", dat => {
-        console.log(dat.toString("hex"));
-        switch (dat[0]) {
-            case (13):
-                wsock.send("disc" + "serv" + dat.slice(1).toString("utf8"));
-                tsock.end();
-                tsock.destroy();
-                wsock.close();
-                wsock.terminate();
-                break;
-            case (7):
-                wsock.send("mess" + dat.slice(3).toString("utf8"));
-                break;
-            case (1):
-                wsock.send("nonc" + dat.slice(1).toString("hex"));
-                break;
-            case (20):
-                var oper
-                if ((dat[1] & 2) == 2) {
-                    oper = "R";
-                }
-                else {
-                    oper = "C";
-                }
-                if ((dat[1] & 1) == 1) {
-                    oper += "B";
-                }
-                else {
-                    oper += "F";
-                }
-                wsock.send("colo" + oper + dat.slice(2).toString("hex"));
-                break;
-            case (36):
-                wsock.send("verp" + dat.slice(1).toString("hex"))
+        while (dat.length > 0) {
+            console.log(dat.toString("hex"));
+            switch (dat[0]) {
+                case (13):
+                    wsock.send("disc" + "serv" + dat.slice(1).toString("utf8"));
+                    tsock.end();
+                    tsock.destroy();
+                    wsock.close();
+                    wsock.terminate();
+                    break;
+                case (7):
+                    let leng = (dat[1] * 256) + dat[2];
+                    wsock.send("mess" + dat.slice(3, leng + 3).toString("utf8"));
+                    dat = dat.slice(leng + 3);
+                    break;
+                case (1):
+                    wsock.send("nonc" + dat.slice(1).toString("hex"));
+                    dat = dat.slice(33);
+                    break;
+                case (20):
+                    var oper;
+                    if ((dat[1] & 2) == 2) {
+                        oper = "R";
+                    }
+                    else {
+                        oper = "C";
+                    }
+                    if ((dat[1] & 1) == 1) {
+                        oper += "B";
+                    }
+                    else {
+                        oper += "F";
+                    }
+                    wsock.send("colo" + oper + dat.slice(2).toString("hex"));
+                    dat = dat.slice(5);
+                    break;
+                case (36):
+                    wsock.send("verp" + dat.slice(1).toString("hex"))
+            }
         }
     });
     tsock.on("close", ifErr => {
