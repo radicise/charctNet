@@ -4,6 +4,8 @@
 
 * The chat is not secure, though login is
 
+* Web support is a work in progress, information on how to use it is not currently in this readme
+
 ## Client launch arguments
 
 * To launch the client program, simply use `launch` as the program argument
