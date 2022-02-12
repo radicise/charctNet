@@ -85,7 +85,8 @@ class Handling implements Runnable {
 	public static int port = 15227;
 	public static volatile byte[] colB = new byte[]{20, 2, -127, -127, -127};
 	public static volatile byte[] colF = new byte[]{20, 3, -127, -127, -127};
-	static Long count = new Long(0);
+	static Integer count = new Integer(-1);
+	static List<String> scrollback = new ArrayList<String>();
 	Socket socket;
 	String username = "";
 	Handling(Socket sock) {
@@ -181,7 +182,6 @@ class Handling implements Runnable {
 		servlg.append("Server has started on port " + port + "\n");
 		while (true) {
 			Handling pl = new Handling(servsock.accept());
-			System.out.println("HEY!");
 	        new Thread(new Runnable() {
 	        	Handling ple = pl;
 	        	public void run() {
@@ -239,6 +239,7 @@ class Handling implements Runnable {
 	static void transmit(String message) {
 		synchronized (count) {
 			count++;
+			scrollback.add(message);
 		}
 		ByteArrayOutputStream tBarOS = new ByteArrayOutputStream();
 		DataOutputStream dOS = new DataOutputStream(tBarOS);
@@ -257,8 +258,19 @@ class Handling implements Runnable {
 		chatlg.append(message);
 	}
 	public void run() {}
-	String scrollGet(int lines, long dist) {
-		return "scrollback placeholder, dist: " + dist + "   lines: " + lines + "\n";
+	static String scrollGet(int lines, int dist) {
+		String out = "";
+		for (int n = 0; n < lines; n++) {
+			if (dist - n >= 0) {
+				synchronized (scrollback) {
+					out = scrollback.get(dist - n) + out;
+				}
+			}
+			else if (dist - n == -1) {
+				return "[There are no previous messages]\n" + out;
+			}
+		}
+		return out;
 	}
 	void serve() throws Exception {
 		OutputStream outS = socket.getOutputStream();
@@ -382,7 +394,10 @@ class Handling implements Runnable {
 		List<Socket> tl = socks;
 		tl.add(socket);
 		socks = tl;
-		long joinCount = count;
+		int joinCount;
+		synchronized(count) {
+			joinCount = count;
+		}
 		List<String> tn = connected;
 		tn.add(name);
 		connected = tn;
@@ -394,6 +409,7 @@ class Handling implements Runnable {
 		int ih;
 		String us;
 		int scrolled = 0;
+		boolean seenAll = false;
 		while (true) {
 			ti = inS.read();
 			if (ti == 13) {
@@ -469,15 +485,20 @@ class Handling implements Runnable {
 				if (io == -1) {
 					return;
 				}
-				scrolled += io;
-				us = scrollGet(io, joinCount - scrolled);
-				nBs = us.getBytes(StandardCharsets.UTF_8);
-				out.write(17);
-				ouD.writeInt(nBs.length);
-				ouD.flush();
-				out.write(nBs);
-				out.writeTo(outS);
-				out.reset();
+				if (!seenAll) {
+					us = scrollGet(io, joinCount - scrolled);
+					scrolled += io;
+					if (joinCount - scrolled < 0) {
+						seenAll = true;
+					}
+					nBs = us.getBytes(StandardCharsets.UTF_8);
+					out.write(17);
+					ouD.writeInt(nBs.length);
+					ouD.flush();
+					out.write(nBs);
+					out.writeTo(outS);
+					out.reset();
+				}
 			}
 		}
 	}

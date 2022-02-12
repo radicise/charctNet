@@ -9,8 +9,8 @@ var scrollAmount = 5
 const verHex = "vers3fd999999999999a"//TODO Update on version change
 const boxStyling = {"height":parseInt(window.getComputedStyle(tex).height, 10), "lineSize":(parseInt(window.getComputedStyle(tex).fontSize, 10) + parseInt(window.getComputedStyle(tex).lineHeight, 10))}
 var boxInScroll
-tex.innerHTML = "charctNet v" + version//Don't do this(?), move
-display("Connecting...")//Move
+tex.innerHTML = "[charctNet v" + version + "]"//Don't do this(?), move
+display("[Connecting...]")//Move
 setInterval(function() {
     if (tex.scrollTop <= 0) {
         conn.send("scrl" + scrollAmount)
@@ -26,7 +26,7 @@ function display(text) {
     }
 }
 conn.addEventListener("open", function(event) {
-    display("Connected!")//Move
+    display("[Connected!]")//Move
     conn.send(verHex)
     redge.addEventListener("keydown", function(event) {
         if (event.key == "Enter") {
