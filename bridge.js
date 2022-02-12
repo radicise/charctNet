@@ -4,6 +4,7 @@ var serverPort = 15227;
 var serverIp = "127.0.0.1";
 var ws = require("ws");
 var net = require("net");
+const { EEXIST } = require("constants");
 var serv = new ws.Server({"port":15226});
 serv.on("connection", wsock => {
     var tsock = new net.Socket().connect(serverPort, serverIp);
@@ -22,6 +23,11 @@ serv.on("connection", wsock => {
                     let leng = (dat[1] * 256) + dat[2];
                     wsock.send("mess" + dat.slice(3, leng + 3).toString("utf8"));
                     dat = dat.slice(leng + 3);
+                    break;
+                case (17):
+                    let lngth = (dat[1] * 16777216) + (dat[2] * 65536) + (dat[3] * 256) + dat[4];
+                    wsock.send("scrl" + dat.slice(5, lngth + 5).toString("utf8"));
+                    dat = dat.slice(lngth + 5);
                     break;
                 case (1):
                     wsock.send("nonc" + dat.slice(1).toString("hex"));
@@ -66,6 +72,9 @@ serv.on("connection", wsock => {
         var type = whole.substring(0, 4);
         var mess = whole.substring(4);
         switch (type) {
+            case ("scrl"):
+                tsock.write(Buffer.from([9, parseInt(mess, 10)]));
+                break;
             case ("mess"):
                 let siz = Buffer.alloc(2);
                 siz.writeInt16BE(Buffer.byteLength(mess, "utf8"));
@@ -78,7 +87,7 @@ serv.on("connection", wsock => {
                 wsock.terminate();
                 break;
             case ("vers"):
-                tsock.write(Buffer.from("07" + mess, "hex"));
+                tsock.write(Buffer.from("0c" + mess, "hex"));
                 break;
             case ("veri"):
                 let size = Buffer.alloc(2);

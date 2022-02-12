@@ -2,16 +2,31 @@ const queries = new URLSearchParams(window.location.search)
 const tex = document.getElementById("textarea")
 const redge = document.getElementById("textin")
 const conn = new WebSocket(queries.get("bridge"))
-const version = 0.4
+const version = 0.4//TODO Update on version change
 const uname = "guest-testingUser"
 const password = "paswo"
-const verHex = "vers3fd999999999999a"
-display("Connecting...")
+var scrollAmount = 5
+const verHex = "vers3fd999999999999a"//TODO Update on version change
+const boxStyling = {"height":parseInt(window.getComputedStyle(tex).height, 10), "lineSize":(parseInt(window.getComputedStyle(tex).fontSize, 10) + parseInt(window.getComputedStyle(tex).lineHeight, 10))}
+var boxInScroll
+tex.innerHTML = "charctNet v" + version//Don't do this(?), move
+display("Connecting...")//Move
+setInterval(function() {
+    if (tex.scrollTop <= 0) {
+        conn.send("scrl" + scrollAmount)
+    }
+}, 500)
 function display(text) {
-    tex.innerHTML += (text + "<br>")//Don't do this in final revisions, also prevent HTML spoofing and "dangerous" characters
+    tex.innerHTML += ("\n" + text)//Don't do this in final revisions(?), also prevent HTML spoofing and "dangerous" characters
+    if (!boxInScroll && (tex.scrollHeight > boxStyling.height)) {
+        boxInScroll = true
+    }
+    if (boxInScroll) {
+        tex.scrollTo(0, tex.scrollHeight - boxStyling.height)
+    }
 }
 conn.addEventListener("open", function(event) {
-    display("Connected!")
+    display("Connected!")//Move
     conn.send(verHex)
     redge.addEventListener("keydown", function(event) {
         if (event.key == "Enter") {
@@ -30,7 +45,7 @@ conn.addEventListener("open", function(event) {
                 display("disconnected by point ID \"" + mess.substring(0, 4) + "\" for: " + mess.substring(4))
                 break
             case ("mess"):
-                display(event.data.substring(4))
+                display(event.data.slice(4, -1))//make sure to deal eith the line feed appropriately
                 break
             case ("colo"):
                 //switch color
@@ -55,6 +70,13 @@ conn.addEventListener("open", function(event) {
                 })*/
                 conn.send("veriffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" + uname)//verification not yet implemented
                 break
+            case ("scrl"):
+                const oldHeight = tex.scrollHeight
+                tex.innerHTML = mess + tex.innerHTML
+                if (tex.scrollHeight > oldHeight) {
+                    tex.scrollTo(tex.scrollLeft, tex.scrollHeight - oldHeight)
+                }
+                break;
             default:
                 display("client: invalid data type from bridge: type \"" + type + "\"")
         }

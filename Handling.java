@@ -85,6 +85,7 @@ class Handling implements Runnable {
 	public static int port = 15227;
 	public static volatile byte[] colB = new byte[]{20, 2, -127, -127, -127};
 	public static volatile byte[] colF = new byte[]{20, 3, -127, -127, -127};
+	static Long count = new Long(0);
 	Socket socket;
 	String username = "";
 	Handling(Socket sock) {
@@ -180,6 +181,7 @@ class Handling implements Runnable {
 		servlg.append("Server has started on port " + port + "\n");
 		while (true) {
 			Handling pl = new Handling(servsock.accept());
+			System.out.println("HEY!");
 	        new Thread(new Runnable() {
 	        	Handling ple = pl;
 	        	public void run() {
@@ -209,7 +211,7 @@ class Handling implements Runnable {
 	        Thread.sleep(500);
 		}
 	}
-	static void send (byte[] data) {
+	static void send(byte[] data) {
 		List<Socket> tl = socks;
 		for (Socket s : tl) {
 			try {
@@ -234,7 +236,10 @@ class Handling implements Runnable {
 			colF = new byte[]{20, (byte) ((bg ? 1 : 0) + (noColor ? 2 : 0)),(byte) uR, (byte) uG, (byte) uB};
 		}
 	}
-	static void transmit (String message) {
+	static void transmit(String message) {
+		synchronized (count) {
+			count++;
+		}
 		ByteArrayOutputStream tBarOS = new ByteArrayOutputStream();
 		DataOutputStream dOS = new DataOutputStream(tBarOS);
 		byte[] mBs = message.getBytes(StandardCharsets.UTF_8);
@@ -252,6 +257,9 @@ class Handling implements Runnable {
 		chatlg.append(message);
 	}
 	public void run() {}
+	String scrollGet(int lines, long dist) {
+		return "scrollback placeholder, dist: " + dist + "   lines: " + lines + "\n";
+	}
 	void serve() throws Exception {
 		OutputStream outS = socket.getOutputStream();
 		InputStream inS = socket.getInputStream();
@@ -265,17 +273,18 @@ class Handling implements Runnable {
 		ouD.writeInt(sRand.nextInt());
 		ouD.flush();
 		MessageDigest dig = MessageDigest.getInstance("SHA-256");//Just in case someone hijacks SecureRandom and doesn't bother to wait for the next leap second
-		byte[] salt = dig.digest(out.toByteArray());
+		byte[] nonce = dig.digest(out.toByteArray());
 		out.reset();
 		while (inS.available() < 1) {//TODO bad use of .available()?
 			Thread.sleep(200);
 		}
 		si = inS.read();
-		if (si == 13 || si == -1) {
+		if (si != 12) {
 			return;
 		}
 		double ver = inD.readDouble();
 		if (ver < 0) {
+			out.write(36);
 			ouD.writeDouble(version);
 			ouD.flush();
 			out.writeTo(outS);
@@ -283,13 +292,13 @@ class Handling implements Runnable {
 		}
 		if (ver != version) {
 			out.write(13);
-			out.write("requested protocol not available".getBytes(StandardCharsets.UTF_8));
+			out.write("server: requested protocol not available".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
 			return;
 		}
 		out.reset();
 		out.write(1);
-		out.write(salt);
+		out.write(nonce);
 		out.writeTo(outS);
 		out.reset();
 		int ti = inS.read();
@@ -299,7 +308,7 @@ class Handling implements Runnable {
 		if (ti != 11) {
 			servlg.append("invalid packet\n");
 			out.write(13);
-			out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
+			out.write("server: client sent invalid packet".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
 			return;
 		}
@@ -320,9 +329,15 @@ class Handling implements Runnable {
 		byte[] nBs = new byte[inD.readShort()];
 		inS.read(nBs);
 		String name = new String(nBs, StandardCharsets.UTF_8);
+		if (name.contains("/")) {
+			out.write(13);
+			out.write("server: illegal username".getBytes(StandardCharsets.UTF_8));
+			out.writeTo(outS);
+			return;
+		}
 		if (!Arrays.asList(unames).contains(name) && !name.equals("guest") && !(name.length() > 5 && name.substring(0, 6).equals("guest-"))) {
 			out.write(13);
-			out.write("username does not exist on this server".getBytes(StandardCharsets.UTF_8));
+			out.write("server: username does not exist on this server".getBytes(StandardCharsets.UTF_8));
 			out.writeTo(outS);
 			return;
 		}
@@ -330,7 +345,7 @@ class Handling implements Runnable {
 		if (!name.equals("guest") && !((name.length() > 5 && name.substring(0, 6).equals("guest-")))) {
 			out.write(psk, (ind * 32), 32);
 		}
-		out.write(salt);
+		out.write(nonce);
 		out.write(nBs);
 		byte[] exp = dig.digest(out.toByteArray());
 		out.reset();
@@ -338,7 +353,7 @@ class Handling implements Runnable {
 			for (byte n = 0; n < 32; n++) {
 				if (exp[n] != resp[n]) {
 					out.write(13);
-					out.write("inauthentic login".getBytes(StandardCharsets.UTF_8));
+					out.write("server: inauthentic login".getBytes(StandardCharsets.UTF_8));
 					out.writeTo(outS);
 					return;
 				}
@@ -364,16 +379,13 @@ class Handling implements Runnable {
 		servlg.append("+{" + name + "} connected from " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "\n");
 		byte[] mData;
 		String message;
-		synchronized (socks) {
-			List<Socket> tl = socks;
-			tl.add(socket);
-			socks = tl;
-		}
-		synchronized (connected) {
-			List<String> tn = connected;
-			tn.add(name);
-			connected = tn;
-		}
+		List<Socket> tl = socks;
+		tl.add(socket);
+		socks = tl;
+		long joinCount = count;
+		List<String> tn = connected;
+		tn.add(name);
+		connected = tn;
 		Thread.sleep(200);
 		transmit(name + " has entered the chat\n");
 		List<String> tsl;
@@ -381,6 +393,7 @@ class Handling implements Runnable {
 		int it;
 		int ih;
 		String us;
+		int scrolled = 0;
 		while (true) {
 			ti = inS.read();
 			if (ti == 13) {
@@ -390,64 +403,81 @@ class Handling implements Runnable {
 				servlg.append("client socket was unexpectedly disconnected\n");
 				return;
 			}
-			if (ti != 7) {
-				servlg.append("invalid packet\n");
+			if (ti != 7 && ti != 9) {
+				servlg.append("server: client sent invalid packet\n");
 				out.write(13);
 				out.write("invalid packet".getBytes(StandardCharsets.UTF_8));
 				out.writeTo(outS);
 				return;
 			}
-			mData = new byte[inD.readShort()];
-			inS.read(mData);
-			message = new String(mData, StandardCharsets.UTF_8);
-			transmit("{" + name + "} " + message + "\n");
-			if (message.length() > 0 && message.charAt(0) == '!') {
-				switch (message) {
-					case ("!help"):
-						transmit("server: Server commands: !help - View available commands, !connected - View connected client usernames, !theme fg|bg <r> <g> <b> - Change the server theme, use /help to view client-side commands\n");
-						break;
-					case ("!connected"):
-						transmit("Server: Connected client usernames:\n");
-						tsl = connected;
-						for (String s : tsl) {
-							transmit(s + "\n");
-						}
-						break;
-					default:
-						if (message.split(" ")[0].equals("!theme")) {
-							if (message.toLowerCase().equals("!theme clear")) {
-								changeColor(0, 0, 0, false, true);
-								changeColor(0, 0, 0, true, true);
-								transmit("server: cleared the theme\n");
-								break;
-							}
-							if (message.split(" ").length < 3) {
-								transmit("server: invalid argument count\n");
-								break;
-							}
-							try {
-								if ((!(message.split(" ")[1].equals("fg"))) && (!(message.split(" ")[1].equals("bg")))) {
-									throw new Exception();
-								}
-								io = Integer.valueOf(message.split(" ")[2]);
-								it = Integer.valueOf(message.split(" ")[3]);
-								ih = Integer.valueOf(message.split(" ")[4]);;
-								changeColor(io, it, ih, message.split(" ")[1].equals("bg"), false);
-								if (message.split(" ")[1].equals("bg")) {
-									us = "background";
-								}
-								else {
-									us = "foreground";
-								}
-								transmit("server: changed the " + us + " colour to rgb " + (io % 256) + " " + (it % 256) + " " + (ih % 256) + "\n");
-							}
-							catch (Exception e) {
-								transmit("server: could not parse arguments\n");
+			if (ti == 7) {
+				mData = new byte[inD.readShort()];
+				inS.read(mData);
+				message = new String(mData, StandardCharsets.UTF_8);
+				transmit("{" + name + "} " + message + "\n");
+				if (message.length() > 0 && message.charAt(0) == '!') {
+					switch (message) {
+						case ("!help"):
+							transmit("server: Server commands: !help - View available commands, !connected - View connected client usernames, !theme fg|bg <r> <g> <b> - Change the server theme, use /help to view client-side commands\n");
+							break;
+						case ("!connected"):
+							transmit("Server: Connected client usernames:\n");
+							tsl = connected;
+							for (String s : tsl) {
+								transmit(s + "\n");
 							}
 							break;
-						}
-						transmit("server: Unknown command, use !help to view available commands\n");
+						default:
+							if (message.split(" ")[0].equals("!theme")) {
+								if (message.toLowerCase().equals("!theme clear")) {
+									changeColor(0, 0, 0, false, true);
+									changeColor(0, 0, 0, true, true);
+									transmit("server: cleared the theme\n");
+									break;
+								}
+								if (message.split(" ").length < 3) {
+									transmit("server: invalid argument count\n");
+									break;
+								}
+								try {
+									if ((!(message.split(" ")[1].equals("fg"))) && (!(message.split(" ")[1].equals("bg")))) {
+										throw new Exception();
+									}
+									io = Integer.valueOf(message.split(" ")[2]);
+									it = Integer.valueOf(message.split(" ")[3]);
+									ih = Integer.valueOf(message.split(" ")[4]);;
+									changeColor(io, it, ih, message.split(" ")[1].equals("bg"), false);
+									if (message.split(" ")[1].equals("bg")) {
+										us = "background";
+									}
+									else {
+										us = "foreground";
+									}
+									transmit("server: changed the " + us + " colour to rgb " + (io % 256) + " " + (it % 256) + " " + (ih % 256) + "\n");
+								}
+								catch (Exception e) {
+									transmit("server: could not parse arguments\n");
+								}
+								break;
+							}
+							transmit("server: Unknown command, use !help to view available commands\n");
+					}
 				}
+			}
+			else {
+				io = inS.read();
+				if (io == -1) {
+					return;
+				}
+				scrolled += io;
+				us = scrollGet(io, joinCount - scrolled);
+				nBs = us.getBytes(StandardCharsets.UTF_8);
+				out.write(17);
+				ouD.writeInt(nBs.length);
+				ouD.flush();
+				out.write(nBs);
+				out.writeTo(outS);
+				out.reset();
 			}
 		}
 	}
